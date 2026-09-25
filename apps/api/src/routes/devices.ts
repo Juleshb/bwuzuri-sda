@@ -12,7 +12,7 @@ devicesRouter.post('/register',async(req:AuthedRequest,res)=>{
  res.status(existing?200:201).json({deviceId:d.deviceId,isApproved:d.isApproved&& !d.revokedAt,approvedAt:d.approvedAt,revokedAt:d.revokedAt});
 });
 devicesRouter.get('/status/:deviceId',async(req:AuthedRequest,res)=>{
- const d=await db.trustedDevice.findFirst({where:{deviceId:req.params.deviceId,userId:req.user!.id}});
+ const d=await db.trustedDevice.findFirst({where:{deviceId:String(req.params.deviceId),userId:req.user!.id}});
  res.json({registered:!!d,isApproved:!!d?.isApproved&&!d?.revokedAt,approvedAt:d?.approvedAt??null,revokedAt:d?.revokedAt??null});
 });
 devicesRouter.get('/',async(req:AuthedRequest,res)=>{
