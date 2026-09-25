@@ -16,7 +16,7 @@ const churches = [
 
 async function main() {
   const password = process.env.SEED_PASSWORD || '';
-  if (password.length < 8 || password.toUpperCase().includes('CHANGE') || password === 'set-a-local-password') {
+  if (password.length < 8 || /change|replace-with|set-a-local-password/i.test(password)) {
     throw new Error('Set SEED_PASSWORD in .env to a local password of at least 8 characters.');
   }
   const passwordHash = await bcrypt.hash(password, 10);

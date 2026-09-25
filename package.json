@@ -17,6 +17,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "setup:server": "bash server/setup.sh",
+    "start:api": "bash server/start.sh",
     "validate:source": "npm run db:validate && npm run typecheck",
     "db:validate": "prisma validate"
   },

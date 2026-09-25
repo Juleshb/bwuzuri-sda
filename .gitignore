@@ -4,3 +4,5 @@ dist/
 backups/
 .DS_Store
 *.tsbuildinfo
+server/bwuzuri-api.service
+server/nginx-api.conf
