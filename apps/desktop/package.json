@@ -1,0 +1,35 @@
+{
+  "name": "@bwuzuri/desktop",
+  "version": "0.17.0",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "npm -w @bwuzuri/web run build && tsc && electron .",
+    "build": "tsc && electron-builder --win nsis",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "electron": "^38.1.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.2",
+    "@types/node": "^24.5.2"
+  },
+  "build": {
+    "appId": "rw.bwuzuri.intara",
+    "productName": "SYSTEM Y'INTARA YA BWUZURI",
+    "files": [
+      "dist/**/*",
+      "../web/dist/**/*"
+    ],
+    "icon": "build/icon.png",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "mac": {
+      "icon": "build/icon.png"
+    }
+  }
+}

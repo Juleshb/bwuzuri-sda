@@ -1,0 +1,34 @@
+{
+  "name": "system-y-intara-ya-bwuzuri",
+  "private": true,
+  "version": "0.17.0-ts.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm -w @bwuzuri/web run dev",
+    "dev:api": "npm -w @bwuzuri/api run dev",
+    "dev:mobile": "npm -w @bwuzuri/mobile run dev",
+    "dev:desktop": "npm -w @bwuzuri/desktop run dev",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "validate:source": "npm run db:validate && npm run typecheck",
+    "db:validate": "prisma validate"
+  },
+  "devDependencies": {
+    "prisma": "^6.16.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.16.0"
+  }
+}

@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Church {
+  id            Int            @id @default(autoincrement())
+  name          String         @unique
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sections      Section[]
+  users         User[]
+  contributions Contribution[]
+}
+
+model Section {
+  id        Int      @id @default(autoincrement())
+  churchId  Int
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Restrict)
+  groups    Group[]
+  users     User[]
+
+  @@unique([churchId, name])
+}
+
+model Group {
+  id        Int      @id @default(autoincrement())
+  sectionId Int
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  members   Member[]
+  users     User[]
+
+  @@unique([sectionId, name])
+}
+
+model Member {
+  id           Int            @id @default(autoincrement())
+  syncId       String         @unique @default(uuid())
+  submissionId String?        @unique
+  groupId      Int
+  fullName     String
+  phoneNumber  String?        @unique
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  group        Group          @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  contributions Contribution[]
+}
+
+model User {
+  id           Int             @id @default(autoincrement())
+  username     String          @unique
+  passwordHash String
+  fullName     String
+  role         String
+  churchId     Int?
+  sectionId    Int?
+  groupId      Int?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  lastLoginAt  DateTime?
+  church       Church?         @relation(fields: [churchId], references: [id], onDelete: Restrict)
+  section      Section?        @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  group        Group?          @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  contributions Contribution[]
+  trustedDevices TrustedDevice[]
+}
+
+model ContributionType {
+  id             Int            @id @default(autoincrement())
+  name           String         @unique
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  contributions  Contribution[]
+  budgetMetrics  BudgetMetric[]
+}
+
+model Contribution {
+  id                  BigInt           @id @default(autoincrement())
+  syncId              String           @unique @default(uuid())
+  churchId            Int
+  memberId            Int?
+  sectionIdAtEntry    Int?
+  groupIdAtEntry      Int?
+  contributionTypeId  Int
+  amountRwf           BigInt
+  receivedAt          DateTime         @default(now())
+  createdByUserId     Int
+  submissionId        String
+  submissionItemIndex Int              @default(0)
+  isCancelled         Boolean          @default(false)
+  cancellationReason  String?
+  cancelledAt         DateTime?
+  church              Church           @relation(fields: [churchId], references: [id], onDelete: Restrict)
+  member              Member?          @relation(fields: [memberId], references: [id], onDelete: Restrict)
+  contributionType    ContributionType @relation(fields: [contributionTypeId], references: [id], onDelete: Restrict)
+  createdBy           User             @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([submissionId, submissionItemIndex])
+}
+
+model ExpenseType {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expenses  Expense[]
+}
+
+model Expense {
+  id                 Int         @id @default(autoincrement())
+  syncId             String      @unique @default(uuid())
+  churchId           Int?
+  expenseTypeId      Int
+  amountRwf          BigInt
+  paidOn             DateTime
+  description        String
+  payee              String      @default("")
+  reference          String      @default("")
+  submissionId       String      @unique
+  createdByUserId    Int
+  createdAt          DateTime    @default(now())
+  isCancelled        Boolean     @default(false)
+  cancellationReason String?
+  cancelledByUserId  Int?
+  cancelledAt        DateTime?
+  expenseType        ExpenseType @relation(fields: [expenseTypeId], references: [id], onDelete: Restrict)
+}
+
+model AssetCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  assets    Asset[]
+}
+
+model Asset {
+  id              Int           @id @default(autoincrement())
+  syncId          String        @unique @default(uuid())
+  churchId        Int?
+  assetCategoryId Int
+  name            String
+  quantity        Int
+  valueRwf        BigInt?
+  location        String        @default("")
+  custodian       String        @default("")
+  condition       String        @default("")
+  notes           String        @default("")
+  isActive        Boolean       @default(true)
+  revision        Int           @default(1)
+  submissionId    String        @unique
+  assetCategory   AssetCategory @relation(fields: [assetCategoryId], references: [id], onDelete: Restrict)
+}
+
+model Budget {
+  id           Int            @id @default(autoincrement())
+  syncId       String         @unique @default(uuid())
+  submissionId String?        @unique
+  name         String
+  startDate    DateTime
+  endDate      DateTime
+  status       String         @default("Draft")
+  createdAt    DateTime       @default(now())
+  completedAt  DateTime?
+  metrics      BudgetMetric[]
+}
+
+model BudgetMetric {
+  id                 Int                      @id @default(autoincrement())
+  budgetId           Int
+  name               String
+  unit               String
+  targetQuantity     BigInt
+  unitPriceRwf       BigInt?
+  contributionTypeId Int?
+  budget             Budget                   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  contributionType   ContributionType?        @relation(fields: [contributionTypeId], references: [id], onDelete: Restrict)
+  churchAllocations  BudgetChurchAllocation[]
+  sectionAllocations BudgetSectionAllocation[]
+  groupAllocations   BudgetGroupAllocation[]
+  memberAllocations  BudgetMemberAllocation[]
+  achievements       BudgetAchievement[]
+}
+
+model BudgetChurchAllocation {
+  id             Int          @id @default(autoincrement())
+  budgetMetricId Int
+  churchId       Int
+  targetValue    BigInt
+  metric         BudgetMetric @relation(fields: [budgetMetricId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetMetricId, churchId])
+}
+
+model BudgetSectionAllocation {
+  id             Int          @id @default(autoincrement())
+  budgetMetricId Int
+  sectionId      Int
+  targetValue    BigInt
+  metric         BudgetMetric @relation(fields: [budgetMetricId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetMetricId, sectionId])
+}
+
+model BudgetGroupAllocation {
+  id             Int          @id @default(autoincrement())
+  budgetMetricId Int
+  groupId        Int
+  targetValue    BigInt
+  metric         BudgetMetric @relation(fields: [budgetMetricId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetMetricId, groupId])
+}
+
+model BudgetMemberAllocation {
+  id             Int          @id @default(autoincrement())
+  budgetMetricId Int
+  groupId        Int
+  memberId       Int
+  targetValue    BigInt
+  metric         BudgetMetric @relation(fields: [budgetMetricId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetMetricId, memberId])
+}
+
+model BudgetAchievement {
+  id             BigInt       @id @default(autoincrement())
+  budgetMetricId Int
+  churchId       Int
+  sectionId      Int?
+  groupId        Int?
+  memberId       Int?
+  quantity       BigInt
+  recordedAt     DateTime     @default(now())
+  createdByUserId Int
+  metric         BudgetMetric @relation(fields: [budgetMetricId], references: [id], onDelete: Cascade)
+}
+
+model SabbathSchoolEntry {
+  id              Int      @id @default(autoincrement())
+  syncId          String   @unique @default(uuid())
+  submissionId    String?  @unique
+  churchId        Int
+  sectionId       Int
+  groupId         Int
+  entryDateUtc    DateTime @default(now())
+  createdByUserId Int
+  payloadJson     Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  revision        Int      @default(1)
+}
+
+model SyncOutboxItem {
+  id           BigInt    @id @default(autoincrement())
+  operationId  String    @unique @default(uuid())
+  entityType   String
+  entitySyncId String
+  operation    String
+  payloadJson  Json
+  createdAt    DateTime  @default(now())
+  syncedAt     DateTime?
+  attemptCount Int       @default(0)
+  lastError    String?
+}
+
+model SyncReceipt {
+  id             BigInt   @id @default(autoincrement())
+  operationId    String   @unique
+  appliedAtUtc   DateTime @default(now())
+  sourceDeviceId String?
+}
+
+model TrustedDevice {
+  id         Int       @id @default(autoincrement())
+  deviceId   String    @unique
+  userId     Int
+  label      String    @default("")
+  isApproved Boolean   @default(false)
+  approvedAt DateTime?
+  revokedAt  DateTime?
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

@@ -1,0 +1,2 @@
+# Run daily at 02:15 server local time. Adjust during deployment if required.
+15 2 * * * bwuzuri cd /opt/bwuzuri && /opt/bwuzuri/scripts/backup-postgres.sh >> /var/log/bwuzuri-backup.log 2>&1

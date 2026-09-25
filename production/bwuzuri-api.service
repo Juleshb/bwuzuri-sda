@@ -1,0 +1,15 @@
+[Unit]
+Description=SYSTEM Y'INTARA YA BWUZURI API
+After=network.target postgresql.service
+[Service]
+Type=simple
+WorkingDirectory=/opt/bwuzuri
+EnvironmentFile=/etc/bwuzuri/bwuzuri.env
+ExecStart=/usr/bin/npm -w @bwuzuri/api start
+Restart=on-failure
+User=bwuzuri
+Group=bwuzuri
+NoNewPrivileges=true
+PrivateTmp=true
+[Install]
+WantedBy=multi-user.target
