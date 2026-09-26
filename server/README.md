@@ -40,7 +40,17 @@ bash server/setup.sh --seed
 
 `--seed` creates the first churches and the `intara` account. Use it only the first time.
 
-## 4. Start
+## 4. Update a server that is already running
+
+From this folder:
+
+```bash
+bash server/update.sh
+```
+
+That pulls the latest code, applies database migrations, and rebuilds `apps/api/dist`. If the API was installed with `install-service.sh`, it restarts. Otherwise restart the Node project in the panel. A pull alone leaves the old process running.
+
+## 5. Start
 
 ```bash
 bash server/start.sh
