@@ -17,7 +17,7 @@ npm install
 npx prisma generate
 npx prisma migrate deploy
 npm -w @bwuzuri/api run build
-REV="$(git rev-parse --short HEAD)"
+REV="$(git -c safe.directory="$ROOT" rev-parse --short HEAD)"
 printf '{"revision":"%s"}\n' "$REV" > apps/api/dist/build-info.json
 
 set -a
