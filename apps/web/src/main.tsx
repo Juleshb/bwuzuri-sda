@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from 'react';
+import {LanguageSwitch, LangProvider, locale, t, useLang} from './i18n';
 import {createRoot} from 'react-dom/client';
 import {api} from './lib/api';
 import './style.css';
@@ -36,12 +37,12 @@ const statusLabel: Record<string, string> = {Draft: 'Igishushanyo', Active: 'Iri
 function money(value: unknown) {
   if (value == null || value === '') return '—';
   const n = Number(value);
-  return Number.isNaN(n) ? String(value) : `${n.toLocaleString('fr-RW')} RWF`;
+  return Number.isNaN(n) ? String(value) : `${n.toLocaleString(locale())} RWF`;
 }
 function when(value: unknown) {
   if (!value) return '—';
   const d = new Date(String(value));
-  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('fr-RW', {dateStyle: 'medium'});
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString(locale(), {dateStyle: 'medium'});
 }
 function day(value: unknown) {
   const text = String(value || '');
@@ -55,22 +56,26 @@ function groupsOf(churches: any[]) {
     label: `${church.name} · ${section.name} · ${group.name}`
   }))));
 }
+function Bones({count = 6, kind = 'row'}: {count?: number; kind?: 'row' | 'card' | 'panel'}) {
+  return <div className="bones" aria-busy="true" aria-label={t("Tegereza amakuru")}>{Array.from({length: count}, (_, index) => <span className={`bone ${kind}`} key={index} />)}</div>;
+}
 function Note({text}: {text: string}) {
   if (!text) return null;
   const ok = /neza|yemewe|bwakuweho|Byabitswe|Bibitswe/i.test(text);
-  return <p className={ok ? 'note ok' : 'note bad'}>{text}</p>;
+  return <p className={ok ? 'note ok' : 'note bad'}>{t(text)}</p>;
 }
-function Table({columns, rows, empty}: {columns: Array<{key: string; label: string; render?: (row: any) => React.ReactNode}>; rows: any[]; empty: string}) {
+function Table({columns, rows, empty, loading}: {columns: Array<{key: string; label: string; render?: (row: any) => React.ReactNode}>; rows: any[]; empty: string; loading?: boolean}) {
   const [q, setQ] = useState('');
   const shown = rows.filter(row => JSON.stringify(row).toLowerCase().includes(q.trim().toLowerCase()));
+  if (loading) return <Bones count={6} />;
   return (
     <div>
       <div className="toolbar">
-        <label className="search"><Icon name="search" /><input placeholder="Shakisha muri iyi lisiti" value={q} onChange={e => setQ(e.target.value)} /></label>
+        <label className="search"><Icon name="search" /><input placeholder={t("Shakisha muri iyi lisiti")} value={q} onChange={e => setQ(e.target.value)} /></label>
         <span className="muted">{shown.length} / {rows.length}</span>
       </div>
-      {!shown.length ? <div className="empty">{rows.length ? 'Nta gisubizo kihuye n’isho shakisha.' : empty}</div> : (
-        <div className="tableWrap"><table><thead><tr>{columns.map(c => <th key={c.key}>{c.label}</th>)}</tr></thead>
+      {!shown.length ? <div className="empty">{rows.length ? t("Nta gisubizo kihuye n’isho shakisha.") : t(empty)}</div> : (
+        <div className="tableWrap"><table><thead><tr>{columns.map(c => <th key={c.key}>{t(c.label)}</th>)}</tr></thead>
           <tbody>{shown.map((row, i) => <tr key={row.id || i}>{columns.map(c => <td key={c.key}>{c.render ? c.render(row) : (row[c.key] ?? '—')}</td>)}</tr>)}</tbody>
         </table></div>
       )}
@@ -78,7 +83,7 @@ function Table({columns, rows, empty}: {columns: Array<{key: string; label: stri
   );
 }
 
-function LookupEditor({title, hint, path, rows, reload}: {title: string; hint: string; path: string; rows: any[]; reload: () => void}) {
+function LookupEditor({title, hint, path, rows, reload, loading}: {title: string; hint: string; path: string; rows: any[]; reload: () => void; loading?: boolean}) {
   const [name, setName] = useState('');
   const [editId, setEditId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
@@ -96,7 +101,7 @@ function LookupEditor({title, hint, path, rows, reload}: {title: string; hint: s
   async function toggle(row: any) {
     try {
       await api(`${path}/${row.id}/active`, {method: 'POST', body: JSON.stringify({isActive: row.isActive === false})});
-      setMsg(row.isActive === false ? 'Byasubijwe neza.' : 'Byahagaritswe neza.');
+      setMsg(row.isActive === false ? t("Byasubijwe neza.") : t("Byahagaritswe neza."));
       reload();
     } catch (e: any) { setMsg(e.message); }
   }
@@ -107,18 +112,18 @@ function LookupEditor({title, hint, path, rows, reload}: {title: string; hint: s
       </div>
       <p className="muted">{hint}</p>
       <Note text={msg} />
-      <Table empty="Nta bwoko buraboneka." rows={rows} columns={[
-        {key: 'name', label: 'Izina'},
-        {key: 'isActive', label: 'Akora', render: r => r.isActive === false ? 'Oya' : 'Yego'},
-        {key: 'action', label: '', render: r => <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => { setEditId(r.id); setName(r.name); setMsg(''); setOpen(true); }} /><Act icon={r.isActive === false ? 'undo' : 'ban'} tone={r.isActive === false ? 'edit' : 'danger'} label={r.isActive === false ? 'Subiza' : 'Hagarika'} onClick={() => toggle(r)} /></span>}
+      <Table loading={loading} empty={t("Nta bwoko buraboneka.")} rows={rows} columns={[
+        {key: 'name', label: t("Izina")},
+        {key: 'isActive', label: t("Akora"), render: r => r.isActive === false ? t("Oya") : t("Yego")},
+        {key: 'action', label: '', render: r => <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setEditId(r.id); setName(r.name); setMsg(''); setOpen(true); }} /><Act icon={r.isActive === false ? 'undo' : 'ban'} tone={r.isActive === false ? 'edit' : 'danger'} label={r.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggle(r)} /></span>}
       ]} />
-      <Modal open={open} title={editId ? `Hindura: ${title}` : title} hint="Izina rigomba kuba irihariye." onClose={close}>
+      <Modal open={open} title={editId ? t("Hindura: {title}", {title: t(title)}) : t(title)} hint={t("Izina rigomba kuba irihariye.")} onClose={close}>
         <form className="form" onSubmit={event => { event.preventDefault(); save(); }}>
-          <label>Izina<input value={name} onChange={e => setName(e.target.value)} autoFocus /></label>
+          <label>{t("Izina")}<input value={name} onChange={e => setName(e.target.value)} autoFocus /></label>
           <Note text={open ? msg : ''} />
           <div className="actions">
-            <Btn icon="save" type="submit">{editId ? 'Bika impinduka' : 'Ongeramo'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={close}>Reka</Btn>
+            <Btn icon="save" type="submit">{editId ? t("Bika impinduka") : t("Ongeramo")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={close}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
@@ -129,6 +134,7 @@ function LookupEditor({title, hint, path, rows, reload}: {title: string; hint: s
 function Login({done}: {done: (user: User) => void}) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   async function login() {
@@ -147,16 +153,17 @@ function Login({done}: {done: (user: User) => void}) {
   return (
     <div className="gate">
       <section className="gate-sabbath">
-        <img src="/brand/sda-symbol-white.svg" alt="Ikimenyetso cy'Itorero ry'Abadiventisiti b'Umunsi wa Karindwi" />
+        <img src="/brand/sda-symbol-white.svg" alt={t("Ikimenyetso cy'Itorero ry'Abadiventisiti b'Umunsi wa Karindwi")} />
       </section>
       <section className="gate-card">
+        <LanguageSwitch />
         <form onSubmit={e => { e.preventDefault(); if (!busy) login(); }}>
           <p className="entity"><small>Intara ya Bwuzuri</small><strong>SYSTEM Y’INTARA YA BWUZURI</strong></p>
-          <h2>Injira</h2>
-          <p className="muted">Koresha konti yawe. Ubona gusa ibiri mu rwego rwawe.</p>
+          <h2>{t("Injira")}</h2>
+          <p className="muted">{t("Koresha konti yawe. Ubona gusa ibiri mu rwego rwawe.")}</p>
           <label>Username<input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} /></label>
-          <label>Password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /></label>
-          <button className="primary with-ico" disabled={busy}><Icon name="login" />{busy ? 'Tegereza...' : 'Injira'}</button>
+          <label>Password<span className="secret"><input type={showPassword ? 'text' : 'password'} autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} /><button type="button" className="eye" aria-pressed={showPassword} aria-label={showPassword ? t("Hisha ijambobanga") : t("Erekana ijambobanga")} onClick={() => setShowPassword(value => !value)}><Icon name={showPassword ? 'eye-off' : 'eye'} /></button></span></label>
+          <button className="primary with-ico" disabled={busy}><Icon name="login" />{busy ? t("Tegereza...") : t("Injira")}</button>
           <Note text={error} />
         </form>
       </section>
@@ -166,11 +173,11 @@ function Login({done}: {done: (user: User) => void}) {
 
 function countOf(value: unknown) {
   const n = Number(value);
-  return Number.isFinite(n) ? n.toLocaleString('fr-RW') : '—';
+  return Number.isFinite(n) ? n.toLocaleString(locale()) : '—';
 }
 function Bars({items, format}: {items: Array<{label: string; value: number; tone?: 'forest' | 'gold'}>; format?: (value: number) => string}) {
   const max = Math.max(1, ...items.map(item => item.value));
-  if (!items.length) return <p className="muted">Nta mibare iraboneka.</p>;
+  if (!items.length) return <p className="muted">{t("Nta mibare iraboneka.")}</p>;
   return (
     <div className="bars">
       {items.map(item => (
@@ -246,50 +253,58 @@ function Dashboard({user}: {user: User}) {
   const assetValue = (info?.assets || []).reduce((sum: number, row: any) => sum + Number(row.valueRwf || 0), 0);
   const budget = (info?.budgets || []).find((row: any) => row.status === 'Active') || info?.budgets?.[0];
   const sabbathTotals = Object.entries(info?.sabbath?.totals || {});
-  const today = new Date().toLocaleDateString('fr-RW', {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
-  const pretty = (value: unknown) => { const text = day(value); if (!text) return ''; const d = new Date(`${text}T00:00:00`); return Number.isNaN(d.getTime()) ? text : d.toLocaleDateString('fr-RW', {day: 'numeric', month: 'long', year: 'numeric'}); };
+  const today = new Date().toLocaleDateString(locale(), {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'});
+  const pretty = (value: unknown) => { const text = day(value); if (!text) return ''; const d = new Date(`${text}T00:00:00`); return Number.isNaN(d.getTime()) ? text : d.toLocaleDateString(locale(), {day: 'numeric', month: 'long', year: 'numeric'}); };
   const period = budget && pretty(budget.startDate) && pretty(budget.endDate) ? `${pretty(budget.startDate)} – ${pretty(budget.endDate)}` : '';
   return (
     <section className="dash">
       <header className="dash-hero">
         <div>
-          <h2>Murakaza neza, {user.fullName}</h2>
-          <p className="dash-date">{roleLabel[user.role]} · {today}</p>
+          <h2>{t("Murakaza neza, {name}", {name: user.fullName})}</h2>
+          <p className="dash-date">{t(roleLabel[user.role])} · {today}</p>
         </div>
       </header>
       {error && <Note text={error} />}
-      <div className="kpi-grid">
-        <Kpi icon="church" label="Amatorero" value={info ? countOf(churches.length) : '…'} note="Mu rwego rwawe" />
-        <Kpi icon="home" label="Ibihande" value={info ? countOf(sections) : '…'} note="Bikora" />
-        <Kpi icon="book" label="Amatsinda" value={info ? countOf(groups) : '…'} note="Bikora" />
-        <Kpi icon="chart" label="Abizera" value={info ? countOf(activeMembers) : '…'} note={info ? `${countOf(inactiveMembers)} bahagaritswe` : 'Bakora'} />
-      </div>
-      <div className={seesFinance ? 'kpi-grid money' : 'kpi-grid money solo'}>
-        <Kpi tone="lead" icon="coins" label="Imisanzu" value={info?.summary ? money(info.summary.totalContributed) : '…'} note={info?.summary ? `${countOf(info.summary.contributionEntries)} inyandiko` : 'Igiteranyo'} />
-        {seesFinance && <Kpi tone="gold" icon="budget" label="Yasohotse" value={info ? money(expenseTotal) : '…'} note={info ? `${countOf(info.expenses.length)} inyandiko` : 'Amafaranga asohoka'} />}
-        {seesFinance && <Kpi icon="box" label="Ibikoresho" value={info ? countOf(info.assets.length) : '…'} note={info ? `Agaciro ${money(assetValue)}` : 'Bikora'} />}
-      </div>
+      {!info && !error && (
+        <>
+          <div className="kpi-grid"><Bones count={4} kind="card" /></div>
+          <div className={seesFinance ? 'kpi-grid money' : 'kpi-grid money solo'}><Bones count={seesFinance ? 3 : 1} kind="card" /></div>
+          <div className="dash-charts"><Bones count={seesFinance ? 2 : 1} kind="panel" /></div>
+        </>
+      )}
+      {info && <div className="kpi-grid">
+        <Kpi icon="church" label={t("Amatorero")} value={countOf(churches.length)} note={t("Mu rwego rwawe")} />
+        <Kpi icon="home" label={t("Ibihande")} value={countOf(sections)} note={t("Bikora")} />
+        <Kpi icon="book" label={t("Amatsinda")} value={countOf(groups)} note={t("Bikora")} />
+        <Kpi icon="chart" label={t("Abizera")} value={countOf(activeMembers)} note={t("{n} bahagaritswe", {n: countOf(inactiveMembers)})} />
+      </div>}
+      {info && <div className={seesFinance ? 'kpi-grid money' : 'kpi-grid money solo'}>
+        <Kpi tone="lead" icon="coins" label={t("Imisanzu")} value={info.summary ? money(info.summary.totalContributed) : '—'} note={info.summary ? t("{n} inyandiko", {n: countOf(info.summary.contributionEntries)}) : t("Igiteranyo")} />
+        {seesFinance && <Kpi tone="gold" icon="budget" label={t("Yasohotse")} value={money(expenseTotal)} note={t("{n} inyandiko", {n: countOf(info.expenses.length)})} />}
+        {seesFinance && <Kpi icon="box" label={t("Ibikoresho")} value={countOf(info.assets.length)} note={t("Agaciro {amount}", {amount: money(assetValue)})} />}
+      </div>}
+      {info && <>
       <div className="dash-charts">
         <article className="dash-panel">
-          <h3>Abizera ku matorero</h3>
-          {!info ? <p className="muted">Tegereza…</p> : <Bars items={churchRows.map((row: any) => ({label: row.name, value: row.active, tone: 'forest' as const}))} />}
+          <h3>{t("Abizera ku matorero")}</h3>
+          <Bars items={churchRows.map((row: any) => ({label: row.name, value: row.active, tone: 'forest' as const}))} />
         </article>
         {seesFinance && (
           <article className="dash-panel">
-            <h3>Imisanzu na yasohotse</h3>
-            {!info ? <p className="muted">Tegereza…</p> : <Bars format={value => money(value)} items={[
-              {label: 'Imisanzu', value: Number(info.summary?.totalContributed || 0), tone: 'gold'},
-              {label: 'Yasohotse', value: expenseTotal, tone: 'forest'}
-            ]} />}
+            <h3>{t("Imisanzu na yasohotse")}</h3>
+            <Bars format={value => money(value)} items={[
+              {label: t("Imisanzu"), value: Number(info.summary?.totalContributed || 0), tone: 'gold'},
+              {label: t("Yasohotse"), value: expenseTotal, tone: 'forest'}
+            ]} />
           </article>
         )}
       </div>
       <div className="dash-panels">
         <article className="dash-panel">
-          <h3>Imibare y’amatorero</h3>
-          {!info ? <p className="muted">Tegereza imibare…</p> : !churchRows.length ? <p className="muted">Nta torero riri muri ubu burenganzira.</p> : (
+          <h3>{t("Imibare y’amatorero")}</h3>
+          {!churchRows.length ? <p className="muted">{t("Nta torero riri muri ubu burenganzira.")}</p> : (
             <div className="church-board">
-              <div className="church-line head"><span>Itorero</span><span>Ibihande</span><span>Amatsinda</span><span>Abizera</span><span>Bahagaritswe</span></div>
+              <div className="church-line head"><span>{t("Itorero")}</span><span>{t("Ibihande")}</span><span>{t("Amatsinda")}</span><span>{t("Abizera")}</span><span>{t("Bahagaritswe")}</span></div>
               {churchRows.map((row: any) => (
                 <div className="church-line" key={row.id}>
                   <strong>{row.name}</strong>
@@ -304,31 +319,32 @@ function Dashboard({user}: {user: User}) {
         </article>
         <div className="dash-side">
           <article className="dash-panel">
-            <h3>Ingengo y’imari</h3>
-            {!info ? <p className="muted">Tegereza…</p> : !budget ? <p className="muted">Nta ngengo iraboneka.</p> : (
+            <h3>{t("Ingengo y’imari")}</h3>
+            {!budget ? <p className="muted">{t("Nta ngengo iraboneka.")}</p> : (
               <>
-                <div className="dash-budget-head"><strong>{budget.name}</strong><span className="status">{statusLabel[budget.status] || budget.status}</span></div>
+                <div className="dash-budget-head"><strong>{budget.name}</strong><span className="status">{t(statusLabel[budget.status] || budget.status)}</span></div>
                 {period && <p className="muted">{period}</p>}
-                {(budget.metrics || []).length ? <Bars format={value => `${value.toLocaleString('fr-RW', {maximumFractionDigits: 1})}%`} items={(budget.metrics as any[]).map(metric => ({label: metric.name, value: Math.max(0, Number(metric.percentage) || 0), tone: 'gold' as const}))} /> : <p className="muted">Iyi ngengo nta gipimo ifite.</p>}
+                {(budget.metrics || []).length ? <Bars format={value => `${value.toLocaleString(locale(), {maximumFractionDigits: 1})}%`} items={(budget.metrics as any[]).map(metric => ({label: metric.name, value: Math.max(0, Number(metric.percentage) || 0), tone: 'gold' as const}))} /> : <p className="muted">{t("Iyi ngengo nta gipimo ifite.")}</p>}
               </>
             )}
           </article>
           <article className="dash-panel">
-            <h3>Ishuri ryo ku Isabato</h3>
-            {!info ? <p className="muted">Tegereza…</p> : !info.sabbath?.entryCount ? <p className="muted">Nta mibare yanditswe.</p> : (
+            <h3>{t("Ishuri ryo ku Isabato")}</h3>
+            {!info.sabbath?.entryCount ? <p className="muted">{t("Nta mibare yanditswe.")}</p> : (
               <>
-                <p className="muted">{countOf(info.sabbath.entryCount)} inyandiko</p>
-                {sabbathTotals.length ? <Bars items={sabbathTotals.map(([name, value]) => ({label: name, value: Number(value) || 0}))} /> : <p className="muted">Inyandiko ntizifite imibare.</p>}
+                <p className="muted">{t("{n} inyandiko", {n: countOf(info.sabbath.entryCount)})}</p>
+                {sabbathTotals.length ? <Bars items={sabbathTotals.map(([name, value]) => ({label: name, value: Number(value) || 0}))} /> : <p className="muted">{t("Inyandiko ntizifite imibare.")}</p>}
               </>
             )}
           </article>
         </div>
       </div>
+      </>}
     </section>
   );
 }
 
-function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () => void}) {
+function Churches({user, rows, refresh, loading}: {user: User; rows: any[]; refresh: () => void; loading?: boolean}) {
   const [churches, setChurches] = useState<any[]>([]);
   const [form, setForm] = useState<any>({orgKind: 'church'});
   const [sheet, setSheet] = useState<null | 'org' | 'member'>(null);
@@ -336,9 +352,13 @@ function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
   const [treeTick, setTreeTick] = useState(0);
   const [pickedId, setPickedId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
+  const [treeReady, setTreeReady] = useState(false);
   const regional = user.role === 'REGIONAL_LEADER';
   useEffect(() => {
-    api(regional ? '/churches?all=1' : '/churches').then(setChurches).catch((e: any) => setMsg(e.message));
+    let live = true;
+    setTreeReady(false);
+    api(regional ? '/churches?all=1' : '/churches').then(rows => { if (live) setChurches(rows); }).catch((e: any) => { if (live) setMsg(e.message); }).finally(() => { if (live) setTreeReady(true); });
+    return () => { live = false; };
   }, [regional, treeTick]);
   const activeTree = churches.filter(c => c.isActive !== false).map(c => ({
     ...c,
@@ -382,7 +402,7 @@ function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
   async function toggleMember(row: any) {
     try {
       await api(`/members/${row.id}/active`, {method: 'POST', body: JSON.stringify({isActive: row.isActive === false})});
-      setMsg(row.isActive === false ? 'Umwizera yasubijwe neza.' : 'Umwizera yahagaritswe neza.');
+      setMsg(row.isActive === false ? t("Umwizera yasubijwe neza.") : t("Umwizera yahagaritswe neza."));
       refresh();
     } catch (e: any) { setMsg(e.message); }
   }
@@ -432,7 +452,7 @@ function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
     const path = kind === 'church' ? '/churches' : kind === 'section' ? '/sections' : '/groups';
     try {
       await api(`${path}/${row.id}/active`, {method: 'POST', body: JSON.stringify({isActive: row.isActive === false})});
-      setMsg(row.isActive === false ? 'Byasubijwe neza.' : 'Byahagaritswe neza.');
+      setMsg(row.isActive === false ? t("Byasubijwe neza.") : t("Byahagaritswe neza."));
       setTreeTick(n => n + 1);
     } catch (e: any) { setMsg(e.message); }
   }
@@ -446,10 +466,11 @@ function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
       <div className="church-pick">
         <div className="pick-pane">
           <div className="pick-tools">
-            <label className="search"><Icon name="search" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Shakisha itorero" /></label>
-            {regional && <Btn icon="plus" onClick={() => { setMsg(''); setForm((f: any) => ({...f, orgId: undefined, orgName: '', orgKind: 'church'})); setSheet('org'); }}>Itorero</Btn>}
+            <label className="search"><Icon name="search" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder={t("Shakisha itorero")} /></label>
+            {regional && <Btn icon="plus" onClick={() => { setMsg(''); setForm((f: any) => ({...f, orgId: undefined, orgName: '', orgKind: 'church'})); setSheet('org'); }}>{t("Itorero")}</Btn>}
           </div>
-          <div className="pick-list" role="listbox" aria-label="Amatorero">
+          <div className="pick-list" role="listbox" aria-label={t("Amatorero")}>
+            {!treeReady && <Bones count={5} />}
             {listed.map(church => {
               const sections = church.sections || [];
               const groups = sections.reduce((n: number, section: any) => n + (section.groups?.length || 0), 0);
@@ -457,95 +478,95 @@ function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
               return (
                 <button key={church.id} type="button" role="option" aria-selected={church.id === pickedId} className={church.id === pickedId ? 'pick-item on' : 'pick-item'} onClick={() => setPickedId(church.id)}>
                   <strong>{church.name}</strong>
-                  <small>{sections.length} ibihande · {groups} amatsinda · {believers} abizera</small>
-                  {church.isActive === false && <span className="status">Yahagaritswe</span>}
+                  <small>{t("{sections} ibihande · {groups} amatsinda · {believers} abizera", {sections: sections.length, groups, believers})}</small>
+                  {church.isActive === false && <span className="status">{t("Yahagaritswe")}</span>}
                 </button>
               );
             })}
-            {!listed.length && <p className="muted">Nta torero ribonetse.</p>}
+            {treeReady && !listed.length && <p className="muted">{t("Nta torero ribonetse.")}</p>}
           </div>
         </div>
         <section className="pick-detail">
-          {!selected ? <p className="muted">Hitamo itorero.</p> : (
+          {!treeReady ? <Bones count={3} kind="panel" /> : !selected ? <p className="muted">{t("Hitamo itorero.")}</p> : (
             <>
               <header className="pick-head">
                 <div>
-                  <small>Itorero</small>
+                  <small>{t("Itorero")}</small>
                   <h3>{selected.name}</h3>
-                  <p className="muted">{(selected.sections || []).length} ibihande · {people.filter(row => row.isActive !== false).length} abizera bakora</p>
+                  <p className="muted">{t("{sections} ibihande · {people} abizera bakora", {sections: (selected.sections || []).length, people: people.filter(row => row.isActive !== false).length})}</p>
                 </div>
                 <div className="row-actions">
-                  {regional && <Act icon="pencil" label="Hindura" onClick={() => editOrg('church', selected)} />}
-                  {regional && <Act icon={selected.isActive === false ? 'undo' : 'ban'} tone={selected.isActive === false ? 'edit' : 'danger'} label={selected.isActive === false ? 'Subiza' : 'Hagarika'} onClick={() => toggleOrg('church', selected)} />}
-                  {regional && <Btn icon="plus" onClick={() => { setMsg(''); setForm((f: any) => ({...f, orgId: undefined, orgName: '', orgKind: 'section', orgChurchId: selected.id})); setSheet('org'); }}>Igihande</Btn>}
-                  {canAdd && <Btn icon="plus" onClick={() => { setMsg(''); setForm((f: any) => ({...f, memberId: undefined, fullName: '', phoneNumber: '', groupId: ''})); setSheet('member'); }}>Umwizera</Btn>}
+                  {regional && <Act icon="pencil" label={t("Hindura")} onClick={() => editOrg('church', selected)} />}
+                  {regional && <Act icon={selected.isActive === false ? 'undo' : 'ban'} tone={selected.isActive === false ? 'edit' : 'danger'} label={selected.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggleOrg('church', selected)} />}
+                  {regional && <Btn icon="plus" onClick={() => { setMsg(''); setForm((f: any) => ({...f, orgId: undefined, orgName: '', orgKind: 'section', orgChurchId: selected.id})); setSheet('org'); }}>{t("Igihande")}</Btn>}
+                  {canAdd && <Btn icon="plus" onClick={() => { setMsg(''); setForm((f: any) => ({...f, memberId: undefined, fullName: '', phoneNumber: '', groupId: ''})); setSheet('member'); }}>{t("Umwizera")}</Btn>}
                 </div>
               </header>
-              {selected.isActive === false && <p className="note">Iri torero ryahagaritswe.</p>}
+              {selected.isActive === false && <p className="note">{t("Iri torero ryahagaritswe.")}</p>}
               {(selected.sections || []).length ? (selected.sections || []).map((section: any) => (
                 <article className="section-card" key={section.id}>
                   <div className="org-row">
-                    <div className="org-name"><small>Igihande</small><strong>{section.name}</strong>{section.isActive === false && <span className="status">Yahagaritswe</span>}</div>
+                    <div className="org-name"><small>{t("Igihande")}</small><strong>{section.name}</strong>{section.isActive === false && <span className="status">{t("Yahagaritswe")}</span>}</div>
                     {regional && <span className="row-actions">
-                      <Btn icon="plus" tone="secondary" onClick={() => { setMsg(''); setForm((f: any) => ({...f, orgId: undefined, orgName: '', orgKind: 'group', orgSectionId: section.id})); setSheet('org'); }}>Itsinda</Btn>
-                      <Act icon="pencil" label="Hindura" onClick={() => editOrg('section', section, selected.id)} />
-                      <Act icon={section.isActive === false ? 'undo' : 'ban'} tone={section.isActive === false ? 'edit' : 'danger'} label={section.isActive === false ? 'Subiza' : 'Hagarika'} onClick={() => toggleOrg('section', section)} />
+                      <Btn icon="plus" tone="secondary" onClick={() => { setMsg(''); setForm((f: any) => ({...f, orgId: undefined, orgName: '', orgKind: 'group', orgSectionId: section.id})); setSheet('org'); }}>{t("Itsinda")}</Btn>
+                      <Act icon="pencil" label={t("Hindura")} onClick={() => editOrg('section', section, selected.id)} />
+                      <Act icon={section.isActive === false ? 'undo' : 'ban'} tone={section.isActive === false ? 'edit' : 'danger'} label={section.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggleOrg('section', section)} />
                     </span>}
                   </div>
                   {(section.groups || []).length ? (section.groups || []).map((group: any) => (
                     <div className="group-line" key={group.id}>
-                      <div className="org-name"><small>Itsinda</small><span>{group.name}</span>{group.isActive === false && <span className="status">Yahagaritswe</span>}</div>
-                      {regional && <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => editOrg('group', group, selected.id, section.id)} /><Act icon={group.isActive === false ? 'undo' : 'ban'} tone={group.isActive === false ? 'edit' : 'danger'} label={group.isActive === false ? 'Subiza' : 'Hagarika'} onClick={() => toggleOrg('group', group)} /></span>}
+                      <div className="org-name"><small>{t("Itsinda")}</small><span>{group.name}</span>{group.isActive === false && <span className="status">{t("Yahagaritswe")}</span>}</div>
+                      {regional && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => editOrg('group', group, selected.id, section.id)} /><Act icon={group.isActive === false ? 'undo' : 'ban'} tone={group.isActive === false ? 'edit' : 'danger'} label={group.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggleOrg('group', group)} /></span>}
                     </div>
-                  )) : <p className="muted">Nta tsinda.</p>}
+                  )) : <p className="muted">{t("Nta tsinda.")}</p>}
                 </article>
-              )) : <p className="muted">Iri torero nta gihande rigifite.</p>}
-              {!canAdd && <p className="muted">Intara ireba abizera. Kwiyandikisha no guhindura bikorwa n’Itorero, Igihande, cyangwa Itsinda.</p>}
+              )) : <p className="muted">{t("Iri torero nta gihande rigifite.")}</p>}
+              {!canAdd && <p className="muted">{t("Intara ireba abizera. Kwiyandikisha no guhindura bikorwa n’Itorero, Igihande, cyangwa Itsinda.")}</p>}
               <Note text={sheet ? '' : msg} />
-              <Table empty="Nta mwizera wanditswe muri iri torero." rows={people} columns={[
-          {key: 'fullName', label: 'Amazina'},
-          {key: 'phoneNumber', label: 'Telefoni', render: r => r.phoneNumber || '—'},
-          {key: 'section', label: 'Igihande', render: r => r.group?.section?.name || '—'},
-          {key: 'group', label: 'Itsinda', render: r => r.group?.name || '—'},
-          {key: 'isActive', label: 'Akora', render: r => r.isActive === false ? 'Oya' : 'Yego'},
-          {key: 'action', label: '', render: r => canAdd ? <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => { setMsg(''); setForm((f: any) => ({...f, memberId: r.id, fullName: r.fullName, phoneNumber: r.phoneNumber || '', groupId: r.groupId || r.group?.id || ''})); setSheet('member'); }} /><Act icon={r.isActive === false ? 'undo' : 'ban'} tone={r.isActive === false ? 'edit' : 'danger'} label={r.isActive === false ? 'Subiza' : 'Hagarika'} onClick={() => toggleMember(r)} /></span> : null}
-        ]} />
+              {loading || !treeReady ? <Bones count={4} /> : <Table empty={t("Nta mwizera wanditswe muri iri torero.")} rows={people} columns={[
+          {key: 'fullName', label: t("Amazina")},
+          {key: 'phoneNumber', label: t("Telefoni"), render: r => r.phoneNumber || '—'},
+          {key: 'section', label: t("Igihande"), render: r => r.group?.section?.name || '—'},
+          {key: 'group', label: t("Itsinda"), render: r => r.group?.name || '—'},
+          {key: 'isActive', label: t("Akora"), render: r => r.isActive === false ? t("Oya") : t("Yego")},
+          {key: 'action', label: '', render: r => canAdd ? <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm((f: any) => ({...f, memberId: r.id, fullName: r.fullName, phoneNumber: r.phoneNumber || '', groupId: r.groupId || r.group?.id || ''})); setSheet('member'); }} /><Act icon={r.isActive === false ? 'undo' : 'ban'} tone={r.isActive === false ? 'edit' : 'danger'} label={r.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggleMember(r)} /></span> : null}
+        ]} />}
             </>
           )}
         </section>
       </div>
-      <Modal open={sheet === 'org'} title={form.orgId ? 'Hindura urwego' : 'Ongeramo urwego'} hint="Hitamo niba ari itorero, igihande, cyangwa itsinda." onClose={() => setSheet(null)}>
+      <Modal open={sheet === 'org'} title={form.orgId ? t("Hindura urwego") : t("Ongeramo urwego")} hint={t("Hitamo niba ari itorero, igihande, cyangwa itsinda.")} onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); saveOrg(); }}>
-          <label>Ubwoko<select value={form.orgKind || 'church'} onChange={e => setForm({...form, orgKind: e.target.value, orgId: undefined})}><option value="church">Itorero</option><option value="section">Igihande</option><option value="group">Itsinda</option></select></label>
-          {form.orgKind === 'section' && <label>Itorero<select value={form.orgChurchId || ''} onChange={e => setForm({...form, orgChurchId: e.target.value})}><option value="">Hitamo</option>{activeTree.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
-          {form.orgKind === 'group' && <label>Igihande<select value={form.orgSectionId || ''} onChange={e => setForm({...form, orgSectionId: e.target.value})}><option value="">Hitamo</option>{sectionOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}</select></label>}
-          <label>Izina<input value={form.orgName || ''} onChange={e => setForm({...form, orgName: e.target.value})} autoFocus /></label>
+          <label>{t("Ubwoko")}<select value={form.orgKind || 'church'} onChange={e => setForm({...form, orgKind: e.target.value, orgId: undefined})}><option value="church">{t("Itorero")}</option><option value="section">{t("Igihande")}</option><option value="group">{t("Itsinda")}</option></select></label>
+          {form.orgKind === 'section' && <label>{t("Itorero")}<select value={form.orgChurchId || ''} onChange={e => setForm({...form, orgChurchId: e.target.value})}><option value="">{t("Hitamo")}</option>{activeTree.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+          {form.orgKind === 'group' && <label>{t("Igihande")}<select value={form.orgSectionId || ''} onChange={e => setForm({...form, orgSectionId: e.target.value})}><option value="">{t("Hitamo")}</option>{sectionOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}</select></label>}
+          <label>{t("Izina")}<input value={form.orgName || ''} onChange={e => setForm({...form, orgName: e.target.value})} autoFocus /></label>
           {!form.orgId && <>
             <p className="muted">Konti iyobora iri {form.orgKind === 'group' ? 'tsinda' : form.orgKind === 'section' ? 'gihande' : 'torero'}. Siga ubusa niba utayishaka ubu.</p>
-            <label>Amazina y’ukoresha<input value={form.accountFullName || ''} onChange={e => setForm({...form, accountFullName: e.target.value})} /></label>
+            <label>{t("Amazina y’ukoresha")}<input value={form.accountFullName || ''} onChange={e => setForm({...form, accountFullName: e.target.value})} /></label>
             <div className="form-row">
               <label>Username<input value={form.accountUsername || ''} onChange={e => setForm({...form, accountUsername: e.target.value})} autoComplete="off" /></label>
-              <label>Ijambobanga<input type="password" value={form.accountPassword || ''} onChange={e => setForm({...form, accountPassword: e.target.value})} autoComplete="new-password" /></label>
+              <label>{t("Ijambobanga")}<input type="password" value={form.accountPassword || ''} onChange={e => setForm({...form, accountPassword: e.target.value})} autoComplete="new-password" /></label>
             </div>
           </>}
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{form.orgId ? 'Bika impinduka' : 'Ongeramo'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn>
+            <Btn icon="save" type="submit">{form.orgId ? t("Bika impinduka") : t("Ongeramo")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
-      <Modal open={sheet === 'member'} title={form.memberId ? 'Hindura umwizera' : 'Ongeramo umwizera'} hint="Telefoni, niba uyandika, igomba kuba iyihariye." onClose={() => setSheet(null)}>
+      <Modal open={sheet === 'member'} title={form.memberId ? t("Hindura umwizera") : t("Ongeramo umwizera")} hint={t("Telefoni, niba uyandika, igomba kuba iyihariye.")} onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); saveMember(); }}>
           <div className="form-row">
-            <label>Amazina yose<input value={form.fullName || ''} onChange={e => setForm({...form, fullName: e.target.value})} autoFocus /></label>
-            <label>Telefoni<input value={form.phoneNumber || ''} onChange={e => setForm({...form, phoneNumber: e.target.value})} placeholder="+250..." /></label>
+            <label>{t("Amazina yose")}<input value={form.fullName || ''} onChange={e => setForm({...form, fullName: e.target.value})} autoFocus /></label>
+            <label>{t("Telefoni")}<input value={form.phoneNumber || ''} onChange={e => setForm({...form, phoneNumber: e.target.value})} placeholder="+250..." /></label>
           </div>
-          {user.role !== 'GROUP' && <label>Itsinda<select value={form.groupId || ''} onChange={e => setForm({...form, groupId: e.target.value})}><option value="">Hitamo</option>{options.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>}
+          {user.role !== 'GROUP' && <label>{t("Itsinda")}<select value={form.groupId || ''} onChange={e => setForm({...form, groupId: e.target.value})}><option value="">{t("Hitamo")}</option>{options.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>}
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{form.memberId ? 'Bika impinduka' : 'Bika umwizera'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn>
+            <Btn icon="save" type="submit">{form.memberId ? t("Bika impinduka") : t("Bika umwizera")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
@@ -553,13 +574,19 @@ function Churches({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
   );
 }
 
-function Contributions({rows, refresh}: {rows: any[]; refresh: () => void}) {
+function Contributions({rows, refresh, loading}: {rows: any[]; refresh: () => void; loading?: boolean}) {
   const [meta, setMeta] = useState<any>({members: [], types: []});
   const [form, setForm] = useState<any>({});
   const [open, setOpen] = useState(false);
   const [reasonFor, setReasonFor] = useState<any>(null);
   const [msg, setMsg] = useState('');
-  useEffect(() => { Promise.all([api('/members'), api('/contribution-types')]).then(([members, types]) => setMeta({members, types})).catch((e: any) => setMsg(e.message)); }, []);
+  const [metaReady, setMetaReady] = useState(false);
+  useEffect(() => {
+    let live = true;
+    setMetaReady(false);
+    Promise.all([api('/members'), api('/contribution-types')]).then(([members, types]) => { if (live) setMeta({members, types}); }).catch((e: any) => { if (live) setMsg(e.message); }).finally(() => { if (live) setMetaReady(true); });
+    return () => { live = false; };
+  }, []);
   async function save() {
     if (!form.contributionTypeId) return setMsg('Hitamo ubwoko bw’imisanzu, nk’Itithe cyangwa Ingoboka.');
     if (!(Number(form.amountRwf) > 0)) return setMsg('Andika amafaranga arenga 0.');
@@ -584,43 +611,49 @@ function Contributions({rows, refresh}: {rows: any[]; refresh: () => void}) {
   }
   return (
     <section>
-      <div className="page-tools"><Btn icon="plus" onClick={() => { setMsg(''); setForm({}); setOpen(true); }}>Imisanzu</Btn></div>
+      <div className="page-tools"><Btn icon="plus" onClick={() => { setMsg(''); setForm({}); setOpen(true); }}>{t("Imisanzu")}</Btn></div>
       <Note text={open || reasonFor ? '' : msg} />
-      <Table empty="Nta misanzu yanditswe." rows={rows} columns={[
-        {key: 'who', label: 'Umwizera', render: r => r.member?.fullName || 'Rusange'},
-        {key: 'type', label: 'Ubwoko', render: r => r.contributionType?.name || '—'},
-        {key: 'amountRwf', label: 'Amafaranga', render: r => r.amountRwf == null ? 'Yatanzwe' : money(r.amountRwf)},
-        {key: 'receivedAt', label: 'Itariki', render: r => when(r.receivedAt)},
-        {key: 'action', label: '', render: r => <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => { setMsg(''); setForm({id: r.id, memberId: r.memberId || '', contributionTypeId: r.contributionTypeId, amountRwf: r.amountRwf}); setOpen(true); }} /><Act icon="ban" tone="danger" label="Hagarika" onClick={() => setReasonFor(r)} /></span>}
+      <Table loading={loading || !metaReady} empty={t("Nta misanzu yanditswe.")} rows={rows} columns={[
+        {key: 'who', label: t("Umwizera"), render: r => r.member?.fullName || 'Rusange'},
+        {key: 'type', label: t("Ubwoko"), render: r => r.contributionType?.name || '—'},
+        {key: 'amountRwf', label: t("Amafaranga"), render: r => r.amountRwf == null ? 'Yatanzwe' : money(r.amountRwf)},
+        {key: 'receivedAt', label: t("Itariki"), render: r => when(r.receivedAt)},
+        {key: 'action', label: '', render: r => <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm({id: r.id, memberId: r.memberId || '', contributionTypeId: r.contributionTypeId, amountRwf: r.amountRwf}); setOpen(true); }} /><Act icon="ban" tone="danger" label={t("Hagarika")} onClick={() => setReasonFor(r)} /></span>}
       ]} />
-      <Modal open={open} title={form.id ? 'Hindura imisanzu' : 'Andika imisanzu'} hint="Rusange ni amafaranga atari ay’umuntu umwe." onClose={() => setOpen(false)}>
+      <Modal open={open} title={form.id ? t("Hindura imisanzu") : t("Andika imisanzu")} hint={t("Rusange ni amafaranga atari ay’umuntu umwe.")} onClose={() => setOpen(false)}>
         <form className="form" onSubmit={event => { event.preventDefault(); save(); }}>
           <div className="form-row">
-            <label>Umwizera<select value={form.memberId || ''} onChange={e => setForm({...form, memberId: e.target.value})}><option value="">Rusange / nta muntu umwe</option>{meta.members.map((m: any) => <option key={m.id} value={m.id}>{m.fullName}</option>)}</select></label>
-            <label>Ubwoko<select value={form.contributionTypeId || ''} onChange={e => setForm({...form, contributionTypeId: e.target.value})}><option value="">Hitamo</option>{meta.types.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+            <label>{t("Umwizera")}<select value={form.memberId || ''} onChange={e => setForm({...form, memberId: e.target.value})}><option value="">{t("Rusange / nta muntu umwe")}</option>{meta.members.map((m: any) => <option key={m.id} value={m.id}>{m.fullName}</option>)}</select></label>
+            <label>{t("Ubwoko")}<select value={form.contributionTypeId || ''} onChange={e => setForm({...form, contributionTypeId: e.target.value})}><option value="">{t("Hitamo")}</option>{meta.types.map((t: any) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
           </div>
-          <label>Amafaranga (RWF)<input type="number" min="1" value={form.amountRwf || ''} onChange={e => setForm({...form, amountRwf: e.target.value})} autoFocus /></label>
+          <label>{t("Amafaranga (RWF)")}<input type="number" min="1" value={form.amountRwf || ''} onChange={e => setForm({...form, amountRwf: e.target.value})} autoFocus /></label>
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{form.id ? 'Bika impinduka' : 'Bika imisanzu'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>Reka</Btn>
+            <Btn icon="save" type="submit">{form.id ? t("Bika impinduka") : t("Bika imisanzu")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
-      <ReasonModal open={!!reasonFor} title="Hagarika imisanzu" onClose={() => setReasonFor(null)} onConfirm={cancel} />
+      <ReasonModal open={!!reasonFor} title={t("Hagarika imisanzu")} onClose={() => setReasonFor(null)} onConfirm={cancel} />
     </section>
   );
 }
 
-function Expenses({user, rows, refresh}: {user: User; rows: any[]; refresh: () => void}) {
+function Expenses({user, rows, refresh, loading}: {user: User; rows: any[]; refresh: () => void; loading?: boolean}) {
   const [types, setTypes] = useState<any[]>([]);
   const [form, setForm] = useState<any>({});
   const [open, setOpen] = useState(false);
   const [reasonFor, setReasonFor] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
   const [typeTick, setTypeTick] = useState(0);
+  const [typesReady, setTypesReady] = useState(false);
   const regional = user.role === 'REGIONAL_LEADER';
-  useEffect(() => { api(regional ? '/expenses/types?all=1' : '/expenses/types').then(setTypes).catch((e: any) => setMsg(e.message)); }, [regional, typeTick]);
+  useEffect(() => {
+    let live = true;
+    setTypesReady(false);
+    api(regional ? '/expenses/types?all=1' : '/expenses/types').then(rows => { if (live) setTypes(rows); }).catch((e: any) => { if (live) setMsg(e.message); }).finally(() => { if (live) setTypesReady(true); });
+    return () => { live = false; };
+  }, [regional, typeTick]);
   const activeTypes = types.filter(t => t.isActive !== false);
   const typeName = (id: number) => types.find(t => t.id === id)?.name || '—';
   async function save() {
@@ -648,51 +681,57 @@ function Expenses({user, rows, refresh}: {user: User; rows: any[]; refresh: () =
   }
   return (
     <section>
-      {regional && <LookupEditor title="Ubwoko bw’amafaranga asohoka" hint="Intara ni yo yongeramo, ihindura, kandi ihagarika ubwoko. Itorero rikoresha ubwoko bukora gusa." path="/expenses/types" rows={types} reload={() => setTypeTick(n => n + 1)} />}
-      {user.role === 'CHURCH' && <div className="page-tools"><Btn icon="plus" onClick={() => { setMsg(''); setForm({}); setOpen(true); }}>Amafaranga yasohotse</Btn></div>}
-      {user.role !== 'CHURCH' && <p className="muted">Urebere amafaranga yasohotse mu rwego rwawe. Kwiyandika no guhindura bikorwa n’Itorero ryayanditse.</p>}
+      {regional && <LookupEditor loading={!typesReady} title={t("Ubwoko bw’amafaranga asohoka")} hint={t("Intara ni yo yongeramo, ihindura, kandi ihagarika ubwoko. Itorero rikoresha ubwoko bukora gusa.")} path="/expenses/types" rows={types} reload={() => setTypeTick(n => n + 1)} />}
+      {user.role === 'CHURCH' && <div className="page-tools"><Btn icon="plus" onClick={() => { setMsg(''); setForm({}); setOpen(true); }}>{t("Amafaranga yasohotse")}</Btn></div>}
+      {user.role !== 'CHURCH' && <p className="muted">{t("Urebere amafaranga yasohotse mu rwego rwawe. Kwiyandika no guhindura bikorwa n’Itorero ryayanditse.")}</p>}
       <Note text={open || reasonFor ? '' : msg} />
-      <Table empty="Nta mafaranga asohoka yanditswe." rows={rows} columns={[
-        {key: 'paidOn', label: 'Itariki', render: r => when(r.paidOn)},
-        {key: 'type', label: 'Ubwoko', render: r => typeName(r.expenseTypeId)},
-        {key: 'description', label: 'Ibisobanuro'},
-        {key: 'amountRwf', label: 'Amafaranga', render: r => money(r.amountRwf)},
-        {key: 'payee', label: 'Uwahawe', render: r => r.payee || '—'},
-        {key: 'action', label: '', render: r => user.role === 'CHURCH' ? <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => { setMsg(''); setForm({id: r.id, expenseTypeId: r.expenseTypeId, amountRwf: r.amountRwf, description: r.description, payee: r.payee || '', reference: r.reference || '', paidOn: day(r.paidOn)}); setOpen(true); }} /><Act icon="ban" tone="danger" label="Hagarika" onClick={() => setReasonFor(r.id)} /></span> : null}
+      <Table loading={loading} empty={t("Nta mafaranga asohoka yanditswe.")} rows={rows} columns={[
+        {key: 'paidOn', label: t("Itariki"), render: r => when(r.paidOn)},
+        {key: 'type', label: t("Ubwoko"), render: r => typeName(r.expenseTypeId)},
+        {key: 'description', label: t("Ibisobanuro")},
+        {key: 'amountRwf', label: t("Amafaranga"), render: r => money(r.amountRwf)},
+        {key: 'payee', label: t("Uwahawe"), render: r => r.payee || '—'},
+        {key: 'action', label: '', render: r => user.role === 'CHURCH' ? <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm({id: r.id, expenseTypeId: r.expenseTypeId, amountRwf: r.amountRwf, description: r.description, payee: r.payee || '', reference: r.reference || '', paidOn: day(r.paidOn)}); setOpen(true); }} /><Act icon="ban" tone="danger" label={t("Hagarika")} onClick={() => setReasonFor(r.id)} /></span> : null}
       ]} />
-      <Modal open={open} title={form.id ? 'Hindura amafaranga yasohotse' : 'Andika amafaranga yasohotse'} onClose={() => setOpen(false)}>
+      <Modal open={open} title={form.id ? t("Hindura amafaranga yasohotse") : t("Andika amafaranga yasohotse")} onClose={() => setOpen(false)}>
         <form className="form" onSubmit={event => { event.preventDefault(); save(); }}>
           <div className="form-row">
-            <label>Ubwoko<select value={form.expenseTypeId || ''} onChange={e => setForm({...form, expenseTypeId: e.target.value})}><option value="">Hitamo</option>{activeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-            <label>Amafaranga (RWF)<input type="number" min="1" value={form.amountRwf || ''} onChange={e => setForm({...form, amountRwf: e.target.value})} /></label>
+            <label>{t("Ubwoko")}<select value={form.expenseTypeId || ''} onChange={e => setForm({...form, expenseTypeId: e.target.value})}><option value="">{t("Hitamo")}</option>{activeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+            <label>{t("Amafaranga (RWF)")}<input type="number" min="1" value={form.amountRwf || ''} onChange={e => setForm({...form, amountRwf: e.target.value})} /></label>
           </div>
-          <label>Ibisobanuro<textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} /></label>
+          <label>{t("Ibisobanuro")}<textarea value={form.description || ''} onChange={e => setForm({...form, description: e.target.value})} /></label>
           <div className="form-row">
-            <label>Uwahawe<input value={form.payee || ''} onChange={e => setForm({...form, payee: e.target.value})} /></label>
-            <label>Referansi<input value={form.reference || ''} onChange={e => setForm({...form, reference: e.target.value})} /></label>
+            <label>{t("Uwahawe")}<input value={form.payee || ''} onChange={e => setForm({...form, payee: e.target.value})} /></label>
+            <label>{t("Referansi")}<input value={form.reference || ''} onChange={e => setForm({...form, reference: e.target.value})} /></label>
           </div>
-          <label>Itariki yo kwishyura<input type="date" value={form.paidOn || ''} onChange={e => setForm({...form, paidOn: e.target.value})} /></label>
+          <label>{t("Itariki yo kwishyura")}<input type="date" value={form.paidOn || ''} onChange={e => setForm({...form, paidOn: e.target.value})} /></label>
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{form.id ? 'Bika impinduka' : 'Bika'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>Reka</Btn>
+            <Btn icon="save" type="submit">{form.id ? t("Bika impinduka") : t("Bika")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
-      <ReasonModal open={reasonFor != null} title="Hagarika amafaranga yasohotse" onClose={() => setReasonFor(null)} onConfirm={cancel} />
+      <ReasonModal open={reasonFor != null} title={t("Hagarika amafaranga yasohotse")} onClose={() => setReasonFor(null)} onConfirm={cancel} />
     </section>
   );
 }
 
-function Assets({user, rows, refresh}: {user: User; rows: any[]; refresh: () => void}) {
+function Assets({user, rows, refresh, loading}: {user: User; rows: any[]; refresh: () => void; loading?: boolean}) {
   const [categories, setCategories] = useState<any[]>([]);
   const [form, setForm] = useState<any>({});
   const [open, setOpen] = useState(false);
   const [archiveId, setArchiveId] = useState<number | null>(null);
   const [msg, setMsg] = useState('');
   const [catTick, setCatTick] = useState(0);
+  const [categoriesReady, setCategoriesReady] = useState(false);
   const regional = user.role === 'REGIONAL_LEADER';
-  useEffect(() => { api(regional ? '/assets/categories?all=1' : '/assets/categories').then(setCategories).catch((e: any) => setMsg(e.message)); }, [regional, catTick]);
+  useEffect(() => {
+    let live = true;
+    setCategoriesReady(false);
+    api(regional ? '/assets/categories?all=1' : '/assets/categories').then(rows => { if (live) setCategories(rows); }).catch((e: any) => { if (live) setMsg(e.message); }).finally(() => { if (live) setCategoriesReady(true); });
+    return () => { live = false; };
+  }, [regional, catTick]);
   const activeCategories = categories.filter(c => c.isActive !== false);
   const categoryName = (id: number) => categories.find(c => c.id === id)?.name || '—';
   async function save() {
@@ -720,54 +759,60 @@ function Assets({user, rows, refresh}: {user: User; rows: any[]; refresh: () => 
   }
   return (
     <section>
-      {regional && <LookupEditor title="Ibyiciro by’ibikoresho" hint="Intara ni yo yongeramo, ihindura, kandi ihagarika icyiciro. Itorero rikoresha ibyiciro bikora gusa." path="/assets/categories" rows={categories} reload={() => setCatTick(n => n + 1)} />}
-      {user.role === 'CHURCH' && <div className="page-tools"><Btn icon="plus" onClick={() => { setMsg(''); setForm({}); setOpen(true); }}>Igikoresho</Btn></div>}
+      {regional && <LookupEditor loading={!categoriesReady} title={t("Ibyiciro by’ibikoresho")} hint={t("Intara ni yo yongeramo, ihindura, kandi ihagarika icyiciro. Itorero rikoresha ibyiciro bikora gusa.")} path="/assets/categories" rows={categories} reload={() => setCatTick(n => n + 1)} />}
+      {user.role === 'CHURCH' && <div className="page-tools"><Btn icon="plus" onClick={() => { setMsg(''); setForm({}); setOpen(true); }}>{t("Igikoresho")}</Btn></div>}
       <Note text={open || archiveId != null ? '' : msg} />
-      <Table empty="Nta bikoresho byanditswe." rows={rows} columns={[
-        {key: 'name', label: 'Izina'},
-        {key: 'category', label: 'Icyiciro', render: r => categoryName(r.assetCategoryId)},
-        {key: 'quantity', label: 'Umubare'},
+      <Table loading={loading} empty={t("Nta bikoresho byanditswe.")} rows={rows} columns={[
+        {key: 'name', label: t("Izina")},
+        {key: 'category', label: t("Icyiciro"), render: r => categoryName(r.assetCategoryId)},
+        {key: 'quantity', label: t("Umubare")},
         {key: 'valueRwf', label: 'Agaciro', render: r => r.valueRwf == null ? '—' : money(r.valueRwf)},
-        {key: 'location', label: 'Aho kiri', render: r => r.location || '—'},
-        {key: 'custodian', label: 'Umurinzi', render: r => r.custodian || '—'},
-        {key: 'action', label: '', render: r => user.role === 'CHURCH' ? <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => { setMsg(''); setForm({id: r.id, assetCategoryId: r.assetCategoryId, name: r.name, quantity: r.quantity, valueRwf: r.valueRwf ?? '', location: r.location || '', custodian: r.custodian || '', condition: r.condition || '', notes: r.notes || ''}); setOpen(true); }} /><Act icon="archive" tone="danger" label="Bika" onClick={() => setArchiveId(r.id)} /></span> : null}
+        {key: 'location', label: t("Aho kiri"), render: r => r.location || '—'},
+        {key: 'custodian', label: t("Umurinzi"), render: r => r.custodian || '—'},
+        {key: 'action', label: '', render: r => user.role === 'CHURCH' ? <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm({id: r.id, assetCategoryId: r.assetCategoryId, name: r.name, quantity: r.quantity, valueRwf: r.valueRwf ?? '', location: r.location || '', custodian: r.custodian || '', condition: r.condition || '', notes: r.notes || ''}); setOpen(true); }} /><Act icon="archive" tone="danger" label={t("Bika")} onClick={() => setArchiveId(r.id)} /></span> : null}
       ]} />
-      <Modal open={open} title={form.id ? 'Hindura igikoresho' : 'Andika igikoresho'} onClose={() => setOpen(false)}>
+      <Modal open={open} title={form.id ? t("Hindura igikoresho") : t("Andika igikoresho")} onClose={() => setOpen(false)}>
         <form className="form" onSubmit={event => { event.preventDefault(); save(); }}>
           <div className="form-row">
-            <label>Icyiciro<select value={form.assetCategoryId || ''} onChange={e => setForm({...form, assetCategoryId: e.target.value})}><option value="">Hitamo</option>{activeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
-            <label>Izina<input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} autoFocus /></label>
+            <label>{t("Icyiciro")}<select value={form.assetCategoryId || ''} onChange={e => setForm({...form, assetCategoryId: e.target.value})}><option value="">{t("Hitamo")}</option>{activeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+            <label>{t("Izina")}<input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} autoFocus /></label>
           </div>
           <div className="form-row">
-            <label>Umubare<input type="number" min="0" value={form.quantity || ''} onChange={e => setForm({...form, quantity: e.target.value})} /></label>
-            <label>Agaciro (RWF)<input type="number" min="0" value={form.valueRwf || ''} onChange={e => setForm({...form, valueRwf: e.target.value})} /></label>
+            <label>{t("Umubare")}<input type="number" min="0" value={form.quantity || ''} onChange={e => setForm({...form, quantity: e.target.value})} /></label>
+            <label>{t("Agaciro (RWF)")}<input type="number" min="0" value={form.valueRwf || ''} onChange={e => setForm({...form, valueRwf: e.target.value})} /></label>
           </div>
           <div className="form-row">
-            <label>Aho kiri<input value={form.location || ''} onChange={e => setForm({...form, location: e.target.value})} /></label>
-            <label>Umurinzi<input value={form.custodian || ''} onChange={e => setForm({...form, custodian: e.target.value})} /></label>
+            <label>{t("Aho kiri")}<input value={form.location || ''} onChange={e => setForm({...form, location: e.target.value})} /></label>
+            <label>{t("Umurinzi")}<input value={form.custodian || ''} onChange={e => setForm({...form, custodian: e.target.value})} /></label>
           </div>
-          <label>Imiterere<input value={form.condition || ''} onChange={e => setForm({...form, condition: e.target.value})} /></label>
-          <label>Andi makuru<textarea value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})} /></label>
+          <label>{t("Imiterere")}<input value={form.condition || ''} onChange={e => setForm({...form, condition: e.target.value})} /></label>
+          <label>{t("Andi makuru")}<textarea value={form.notes || ''} onChange={e => setForm({...form, notes: e.target.value})} /></label>
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{form.id ? 'Bika impinduka' : 'Bika igikoresho'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>Reka</Btn>
+            <Btn icon="save" type="submit">{form.id ? t("Bika impinduka") : t("Bika igikoresho")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
-      <ConfirmModal open={archiveId != null} title="Gushyira igikoresho mu bubiko" hint="Ntikigaragara muri lisiti ikora." confirm="Bika" danger onClose={() => setArchiveId(null)} onConfirm={archive} />
+      <ConfirmModal open={archiveId != null} title="Gushyira igikoresho mu bubiko" hint="Ntikigaragara muri lisiti ikora." confirm={t("Bika")} danger onClose={() => setArchiveId(null)} onConfirm={archive} />
     </section>
   );
 }
 
-function Sabbath({user, rows, refresh}: {user: User; rows: any[]; refresh: () => void}) {
+function Sabbath({user, rows, refresh, loading}: {user: User; rows: any[]; refresh: () => void; loading?: boolean}) {
   const [stats, setStats] = useState<Array<{name: string; value: string}>>([{name: 'Abari', value: ''}, {name: 'Abasuye', value: ''}]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [removeId, setRemoveId] = useState<number | null>(null);
   const [summary, setSummary] = useState<any>(null);
+  const [summaryReady, setSummaryReady] = useState(false);
   const [msg, setMsg] = useState('');
-  useEffect(() => { api('/sabbath-school/summary').then(setSummary).catch(() => setSummary(null)); }, [rows]);
+  useEffect(() => {
+    let live = true;
+    setSummaryReady(false);
+    api('/sabbath-school/summary').then(value => { if (live) setSummary(value); }).catch(() => { if (live) setSummary(null); }).finally(() => { if (live) setSummaryReady(true); });
+    return () => { live = false; };
+  }, [rows]);
   async function save() {
     const payload = Object.fromEntries(stats.filter(s => s.name.trim() && s.value !== '').map(s => [s.name.trim(), Number(s.value)]));
     if (!Object.keys(payload).length) return setMsg('Andikamo nibura igipimo kimwe gifite umubare.');
@@ -802,34 +847,34 @@ function Sabbath({user, rows, refresh}: {user: User; rows: any[]; refresh: () =>
   }
   return (
     <section>
-      {summary && <div className="cards" style={{marginBottom: 14}}><div className="stat"><span>Inyandiko</span><b>{summary.entryCount}</b></div>{Object.entries(summary.totals || {}).map(([k, v]) => <div className="stat" key={k}><span>{k}</span><b>{String(v)}</b></div>)}</div>}
-      {user.role === 'GROUP' ? <div className="page-tools"><Btn icon="plus" onClick={() => { setEditingId(null); setStats([{name: 'Abari', value: ''}, {name: 'Abasuye', value: ''}]); setMsg(''); setOpen(true); }}>Imibare y’uyu munsi</Btn></div> : <p className="muted">Urebere igiteranyo. Kwiyandika bikorwa n’Itsinda gusa.</p>}
+      {!summaryReady ? <Bones count={2} kind="card" /> : summary && <div className="cards" style={{marginBottom: 14}}><div className="stat"><span>{t("Inyandiko")}</span><b>{summary.entryCount}</b></div>{Object.entries(summary.totals || {}).map(([k, v]) => <div className="stat" key={k}><span>{k}</span><b>{String(v)}</b></div>)}</div>}
+      {user.role === 'GROUP' ? <div className="page-tools"><Btn icon="plus" onClick={() => { setEditingId(null); setStats([{name: 'Abari', value: ''}, {name: 'Abasuye', value: ''}]); setMsg(''); setOpen(true); }}>{t("Imibare y’uyu munsi")}</Btn></div> : <p className="muted">{t("Urebere igiteranyo. Kwiyandika bikorwa n’Itsinda gusa.")}</p>}
       <Note text={open || removeId != null ? '' : msg} />
-      <Table empty="Nta mibare y’Ishuri ryo ku Isabato iraboneka." rows={rows} columns={[
-        {key: 'entryDateUtc', label: 'Itariki', render: r => when(r.entryDateUtc)},
-        {key: 'payload', label: 'Imibare', render: r => r.payloadJson && typeof r.payloadJson === 'object' ? Object.entries(r.payloadJson).map(([k, v]) => `${k}: ${v}`).join(' · ') : '—'},
-        {key: 'action', label: '', render: r => user.role === 'GROUP' ? <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => edit(r)} /><Act icon="trash" tone="danger" label="Siba" onClick={() => setRemoveId(r.id)} /></span> : null}
+      <Table loading={loading || !summaryReady} empty={t("Nta mibare y’Ishuri ryo ku Isabato iraboneka.")} rows={rows} columns={[
+        {key: 'entryDateUtc', label: t("Itariki"), render: r => when(r.entryDateUtc)},
+        {key: 'payload', label: t("Imibare"), render: r => r.payloadJson && typeof r.payloadJson === 'object' ? Object.entries(r.payloadJson).map(([k, v]) => `${k}: ${v}`).join(' · ') : '—'},
+        {key: 'action', label: '', render: r => user.role === 'GROUP' ? <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => edit(r)} /><Act icon="trash" tone="danger" label={t("Siba")} onClick={() => setRemoveId(r.id)} /></span> : null}
       ]} />
-      <Modal open={open} title={editingId ? 'Hindura imibare' : 'Andika imibare y’uyu munsi'} hint="Urugero: Abari, Abasuye, Abitabiriye." onClose={() => setOpen(false)}>
+      <Modal open={open} title={editingId ? t("Hindura imibare") : t("Andika imibare y’uyu munsi")} hint={t("Urugero: Abari, Abasuye, Abitabiriye.")} onClose={() => setOpen(false)}>
         <form className="form" onSubmit={event => { event.preventDefault(); save(); }}>
           {stats.map((s, i) => (
             <div className="form-row" key={i}>
-              <label>Igipimo<input value={s.name} onChange={e => setStats(stats.map((x, n) => n === i ? {...x, name: e.target.value} : x))} /></label>
-              <label>Umubare<input type="number" min="0" value={s.value} onChange={e => setStats(stats.map((x, n) => n === i ? {...x, value: e.target.value} : x))} /></label>
+              <label>{t("Igipimo")}<input value={s.name} onChange={e => setStats(stats.map((x, n) => n === i ? {...x, name: e.target.value} : x))} /></label>
+              <label>{t("Umubare")}<input type="number" min="0" value={s.value} onChange={e => setStats(stats.map((x, n) => n === i ? {...x, value: e.target.value} : x))} /></label>
             </div>
           ))}
           <div className="actions">
-            <Btn icon="plus" tone="secondary" onClick={() => setStats([...stats, {name: '', value: ''}])}>Igipimo</Btn>
-            {stats.length > 1 && <Btn icon="trash" tone="secondary" onClick={() => setStats(stats.slice(0, -1))}>Kuramo</Btn>}
+            <Btn icon="plus" tone="secondary" onClick={() => setStats([...stats, {name: '', value: ''}])}>{t("Igipimo")}</Btn>
+            {stats.length > 1 && <Btn icon="trash" tone="secondary" onClick={() => setStats(stats.slice(0, -1))}>{t("Kuramo")}</Btn>}
           </div>
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{editingId ? 'Bika impinduka' : 'Bika imibare'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>Reka</Btn>
+            <Btn icon="save" type="submit">{editingId ? t("Bika impinduka") : t("Bika imibare")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
-      <ConfirmModal open={removeId != null} title="Siba imibare" hint="Iyi nyandiko y’Ishuri ryo ku Isabato izasibwa burundu." confirm="Siba" danger onClose={() => setRemoveId(null)} onConfirm={remove} />
+      <ConfirmModal open={removeId != null} title="Siba imibare" hint={t("Iyi nyandiko y’Ishuri ryo ku Isabato izasibwa burundu.")} confirm={t("Siba")} danger onClose={() => setRemoveId(null)} onConfirm={remove} />
     </section>
   );
 }
@@ -843,7 +888,11 @@ function Budgets({user}: {user: User}) {
   const [sheet, setSheet] = useState<null | 'period' | 'edit' | 'metric' | 'alloc' | 'achieve'>(null);
   const [confirm, setConfirm] = useState<null | 'budget' | {metricId: number}>(null);
   const [msg, setMsg] = useState('');
-  const load = () => Promise.all([api('/budgets'), api('/churches'), api(user.role === 'REGIONAL_LEADER' ? '/contribution-types?all=1' : '/contribution-types'), api('/members')]).then(([b, c, t, m]) => { setBudgets(b); setChurches(c); setTypes(t); setMembers(m); }).catch((e: any) => setMsg(e.message));
+  const [ready, setReady] = useState(false);
+  const load = () => {
+    setReady(false);
+    return Promise.all([api('/budgets'), api('/churches'), api(user.role === 'REGIONAL_LEADER' ? '/contribution-types?all=1' : '/contribution-types'), api('/members')]).then(([b, c, t, m]) => { setBudgets(b); setChurches(c); setTypes(t); setMembers(m); }).catch((e: any) => setMsg(e.message)).finally(() => setReady(true));
+  };
   useEffect(() => { load(); }, []);
   const selected = budgets.find(b => b.id === Number(form.budgetId)) || budgets[0];
   const metrics = selected?.metrics || [];
@@ -853,110 +902,110 @@ function Budgets({user}: {user: User}) {
   async function call(path: string, method: string, body?: any) {
     try { await api(path, {method, ...(body === undefined ? {} : {body: JSON.stringify(body)})}); setMsg('Byabitswe neza.'); setSheet(null); setConfirm(null); await load(); return true; } catch (e: any) { setMsg(e.message); return false; }
   }
-  const rows = budgets.flatMap(b => (b.metrics || []).map((m: any) => ({id: `${b.id}-${m.id}`, period: b.name, status: statusLabel[b.status] || b.status, metric: m.name, target: m.target, achievement: m.achievement, percentage: `${m.percentage}%`, remaining: m.remaining})));
+  const rows = budgets.flatMap(b => (b.metrics || []).map((m: any) => ({id: `${b.id}-${m.id}`, period: b.name, status: t(statusLabel[b.status] || b.status), metric: m.name, target: m.target, achievement: m.achievement, percentage: `${m.percentage}%`, remaining: m.remaining})));
   return (
     <section>
-      <p className="muted">Igishushanyo ni ho Intego zihinduka. Iyo period igizwe irimo gukora, intego zihagarara. Hanyuma igira irangiye, ikabikwa. Igishushanyo gusa ni cyo gishobora guhindurwa cyangwa gusibwa.</p>
-      {user.role === 'REGIONAL_LEADER' && <LookupEditor title="Ubwoko bw’imisanzu" hint="Ubu bwoko ni bwo buhuzwa n’ingengo y’imari n’imisanzu. Ubwoko bwahagaritswe ntibugaragara ku Itorero." path="/contribution-types" rows={types} reload={load} />}
+      <p className="muted">{t("Igishushanyo ni ho Intego zihinduka. Iyo period igizwe irimo gukora, intego zihagarara. Hanyuma igira irangiye, ikabikwa. Igishushanyo gusa ni cyo gishobora guhindurwa cyangwa gusibwa.")}</p>
+      {user.role === 'REGIONAL_LEADER' && <LookupEditor loading={!ready} title={t("Ubwoko bw’imisanzu")} hint={t("Ubu bwoko ni bwo buhuzwa n’ingengo y’imari n’imisanzu. Ubwoko bwahagaritswe ntibugaragara ku Itorero.")} path="/contribution-types" rows={types} reload={load} />}
       {user.role === 'REGIONAL_LEADER' && (
         <div className="page-tools">
-          <Btn icon="plus" onClick={() => { setMsg(''); setSheet('period'); }}>Period</Btn>
-          {selected?.status === 'Draft' && <Btn icon="plus" tone="secondary" onClick={() => { setMsg(''); setForm((f: any) => ({...f, metricEditId: undefined, metricName: '', unit: '', targetQuantity: '', unitPriceRwf: '', contributionTypeId: ''})); setSheet('metric'); }}>Igipimo</Btn>}
-          {selected?.status === 'Draft' && metrics.length > 0 && <Btn icon="filter" tone="secondary" onClick={() => { setMsg(''); setSheet('alloc'); }}>Intego</Btn>}
+          <Btn icon="plus" onClick={() => { setMsg(''); setSheet('period'); }}>{t("Period")}</Btn>
+          {selected?.status === 'Draft' && <Btn icon="plus" tone="secondary" onClick={() => { setMsg(''); setForm((f: any) => ({...f, metricEditId: undefined, metricName: '', unit: '', targetQuantity: '', unitPriceRwf: '', contributionTypeId: ''})); setSheet('metric'); }}>{t("Igipimo")}</Btn>}
+          {selected?.status === 'Draft' && metrics.length > 0 && <Btn icon="filter" tone="secondary" onClick={() => { setMsg(''); setSheet('alloc'); }}>{t("Intego")}</Btn>}
         </div>
       )}
       {user.role === 'REGIONAL_LEADER' && selected && (
         <>
           <div className="panel">
-            <h3>{selected.name} · <span className="status">{statusLabel[selected.status] || selected.status}</span></h3>
+            <h3>{selected.name} · <span className="status">{t(statusLabel[selected.status] || selected.status)}</span></h3>
             <p className="muted">Igihe: {when(selected.startDate)} – {when(selected.endDate)}</p>
-            <label>Period<select value={form.budgetId || selected.id} onChange={e => setForm({...form, budgetId: e.target.value, metricId: ''})}>{budgets.map(b => <option key={b.id} value={b.id}>{b.name} — {statusLabel[b.status] || b.status}</option>)}</select></label>
+            <label>{t("Period")}<select value={form.budgetId || selected.id} onChange={e => setForm({...form, budgetId: e.target.value, metricId: ''})}>{budgets.map(b => <option key={b.id} value={b.id}>{b.name} — {t(statusLabel[b.status] || b.status)}</option>)}</select></label>
             <div className="actions" style={{marginTop: 10}}>
-              {selected.status === 'Draft' && <Btn icon="pencil" tone="secondary" onClick={() => { setForm((f: any) => ({...f, periodName: selected.name, periodStart: day(selected.startDate), periodEnd: day(selected.endDate)})); setSheet('edit'); }}>Hindura</Btn>}
-              {selected.status === 'Draft' && <Btn icon="trash" tone="danger" onClick={() => setConfirm('budget')}>Siba</Btn>}
-              {selected.status === 'Draft' && <Btn icon="check" onClick={() => call(`/budgets/${selected.id}/status`, 'PATCH', {status: 'Active'})}>Yemeze ikore</Btn>}
-              {selected.status === 'Active' && <Btn icon="check" onClick={() => call(`/budgets/${selected.id}/status`, 'PATCH', {status: 'Completed'})}>Rangiza</Btn>}
-              {selected.status === 'Completed' && <Btn icon="archive" onClick={() => call(`/budgets/${selected.id}/status`, 'PATCH', {status: 'Archived'})}>Bika</Btn>}
-              {selected.status === 'Archived' && <span className="muted">Iyi period yabitswe. Nta gikorwa gisigaye.</span>}
+              {selected.status === 'Draft' && <Btn icon="pencil" tone="secondary" onClick={() => { setForm((f: any) => ({...f, periodName: selected.name, periodStart: day(selected.startDate), periodEnd: day(selected.endDate)})); setSheet('edit'); }}>{t("Hindura")}</Btn>}
+              {selected.status === 'Draft' && <Btn icon="trash" tone="danger" onClick={() => setConfirm('budget')}>{t("Siba")}</Btn>}
+              {selected.status === 'Draft' && <Btn icon="check" onClick={() => call(`/budgets/${selected.id}/status`, 'PATCH', {status: 'Active'})}>{t("Yemeze ikore")}</Btn>}
+              {selected.status === 'Active' && <Btn icon="check" onClick={() => call(`/budgets/${selected.id}/status`, 'PATCH', {status: 'Completed'})}>{t("Rangiza")}</Btn>}
+              {selected.status === 'Completed' && <Btn icon="archive" onClick={() => call(`/budgets/${selected.id}/status`, 'PATCH', {status: 'Archived'})}>{t("Bika")}</Btn>}
+              {selected.status === 'Archived' && <span className="muted">{t("Iyi period yabitswe. Nta gikorwa gisigaye.")}</span>}
             </div>
           </div>
           {selected.status === 'Draft' && metrics.length > 0 && <Table empty="" rows={metrics} columns={[
-            {key: 'name', label: 'Izina'},
-            {key: 'unit', label: 'Ingero'},
-            {key: 'targetQuantity', label: 'Intego', render: m => String(m.targetQuantity)},
-            {key: 'action', label: '', render: m => <span className="row-actions"><Act icon="pencil" label="Hindura" onClick={() => { setForm((f: any) => ({...f, metricEditId: m.id, metricName: m.name, unit: m.unit, targetQuantity: m.targetQuantity, unitPriceRwf: m.unitPriceRwf || '', contributionTypeId: m.contributionTypeId || ''})); setSheet('metric'); }} /><Act icon="trash" tone="danger" label="Siba" onClick={() => setConfirm({metricId: m.id})} /></span>}
+            {key: 'name', label: t("Izina")},
+            {key: 'unit', label: t("Ingero")},
+            {key: 'targetQuantity', label: t("Intego"), render: m => String(m.targetQuantity)},
+            {key: 'action', label: '', render: m => <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm((f: any) => ({...f, metricEditId: m.id, metricName: m.name, unit: m.unit, targetQuantity: m.targetQuantity, unitPriceRwf: m.unitPriceRwf || '', contributionTypeId: m.contributionTypeId || ''})); setSheet('metric'); }} /><Act icon="trash" tone="danger" label={t("Siba")} onClick={() => setConfirm({metricId: m.id})} /></span>}
           ]} />}
         </>
       )}
-      {user.role !== 'REGIONAL_LEADER' && <p>Urebere intego n’ibyagezweho. Guhindura period n’intego bikorwa n’Intara gusa.</p>}
-      {metrics.some((m: any) => !m.contributionTypeId) && <div className="page-tools"><Btn icon="plus" tone="secondary" onClick={() => setSheet('achieve')}>Ibyagezweho bitari amafaranga</Btn></div>}
+      {user.role !== 'REGIONAL_LEADER' && <p>{t("Urebere intego n’ibyagezweho. Guhindura period n’intego bikorwa n’Intara gusa.")}</p>}
+      {metrics.some((m: any) => !m.contributionTypeId) && <div className="page-tools"><Btn icon="plus" tone="secondary" onClick={() => setSheet('achieve')}>{t("Ibyagezweho bitari amafaranga")}</Btn></div>}
       <Note text={sheet || confirm ? '' : msg} />
       <Modal open={sheet === 'period'} title="Kora period nshya" hint="Urugero: Ingengo 2026. Itariki irangira ntishobora kubanziriza itangira." onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); if (!String(form.name || '').trim()) return setMsg('Izina rya period rirakenewe.'); if (!form.startDate || !form.endDate) return setMsg('Hitamo itariki y’itangira n’irangira.'); if (form.endDate < form.startDate) return setMsg('Itariki irangira ntishobora kubanziriza itangira.'); call('/budgets', 'POST', {name: String(form.name).trim(), startDate: form.startDate, endDate: form.endDate, submissionId: sid()}); }}>
-          <label>Izina<input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} autoFocus /></label>
+          <label>{t("Izina")}<input value={form.name || ''} onChange={e => setForm({...form, name: e.target.value})} autoFocus /></label>
           <div className="form-row">
-            <label>Itangiriro<input type="date" value={form.startDate || ''} onChange={e => setForm({...form, startDate: e.target.value})} /></label>
-            <label>Irangira<input type="date" value={form.endDate || ''} onChange={e => setForm({...form, endDate: e.target.value})} /></label>
+            <label>{t("Itangiriro")}<input type="date" value={form.startDate || ''} onChange={e => setForm({...form, startDate: e.target.value})} /></label>
+            <label>{t("Irangira")}<input type="date" value={form.endDate || ''} onChange={e => setForm({...form, endDate: e.target.value})} /></label>
           </div>
           <Note text={msg} />
-          <div className="actions"><Btn icon="save" type="submit">Kora period</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn></div>
+          <div className="actions"><Btn icon="save" type="submit">{t("Kora period")}</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn></div>
         </form>
       </Modal>
-      <Modal open={sheet === 'edit' && !!selected} title="Hindura period" hint="Ibi bikora gusa ku gishushanyo." onClose={() => setSheet(null)}>
+      <Modal open={sheet === 'edit' && !!selected} title={t("Hindura period")} hint="Ibi bikora gusa ku gishushanyo." onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); const name = String(form.periodName || '').trim(); if (!name || !form.periodStart || !form.periodEnd || form.periodEnd < form.periodStart) return setMsg('Izina n’itariki zikwiye.'); call(`/budgets/${selected.id}`, 'PATCH', {name, startDate: form.periodStart, endDate: form.periodEnd}); }}>
-          <label>Izina<input value={form.periodName || ''} onChange={e => setForm({...form, periodName: e.target.value})} autoFocus /></label>
+          <label>{t("Izina")}<input value={form.periodName || ''} onChange={e => setForm({...form, periodName: e.target.value})} autoFocus /></label>
           <div className="form-row">
-            <label>Itangiriro<input type="date" value={form.periodStart || ''} onChange={e => setForm({...form, periodStart: e.target.value})} /></label>
-            <label>Irangira<input type="date" value={form.periodEnd || ''} onChange={e => setForm({...form, periodEnd: e.target.value})} /></label>
+            <label>{t("Itangiriro")}<input type="date" value={form.periodStart || ''} onChange={e => setForm({...form, periodStart: e.target.value})} /></label>
+            <label>{t("Irangira")}<input type="date" value={form.periodEnd || ''} onChange={e => setForm({...form, periodEnd: e.target.value})} /></label>
           </div>
           <Note text={msg} />
-          <div className="actions"><Btn icon="save" type="submit">Bika impinduka</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn></div>
+          <div className="actions"><Btn icon="save" type="submit">{t("Bika impinduka")}</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn></div>
         </form>
       </Modal>
-      <Modal open={sheet === 'metric' && !!selected} title={form.metricEditId ? 'Hindura igipimo' : 'Ongeramo igipimo'} hint="Iyo uhuza igipimo n’ubwoko bw’imisanzu, ibyagezweho biva mu misanzu." onClose={() => setSheet(null)}>
+      <Modal open={sheet === 'metric' && !!selected} title={form.metricEditId ? t("Hindura igipimo") : t("Ongeramo igipimo")} hint={t("Iyo uhuza igipimo n’ubwoko bw’imisanzu, ibyagezweho biva mu misanzu.")} onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); if (!String(form.metricName || '').trim()) return setMsg('Izina ry’igipimo rirakenewe.'); const body = {name: String(form.metricName).trim(), unit: form.unit || 'RWF', targetQuantity: form.targetQuantity || 0, unitPriceRwf: form.unitPriceRwf || null, contributionTypeId: form.contributionTypeId || null}; if (form.metricEditId) call(`/budgets/metrics/${form.metricEditId}`, 'PATCH', body); else call(`/budgets/${selected.id}/metrics`, 'POST', body); }}>
           <div className="form-row">
-            <label>Izina<input value={form.metricName || ''} onChange={e => setForm({...form, metricName: e.target.value})} autoFocus /></label>
-            <label>Ingero<input value={form.unit || ''} onChange={e => setForm({...form, unit: e.target.value})} placeholder="RWF, abantu, ..." /></label>
+            <label>{t("Izina")}<input value={form.metricName || ''} onChange={e => setForm({...form, metricName: e.target.value})} autoFocus /></label>
+            <label>{t("Ingero")}<input value={form.unit || ''} onChange={e => setForm({...form, unit: e.target.value})} placeholder="RWF, abantu, ..." /></label>
           </div>
           <div className="form-row">
-            <label>Intego<input type="number" min="0" value={form.targetQuantity || ''} onChange={e => setForm({...form, targetQuantity: e.target.value})} /></label>
-            <label>Igiciro c’igice (RWF)<input type="number" min="0" value={form.unitPriceRwf || ''} onChange={e => setForm({...form, unitPriceRwf: e.target.value})} /></label>
+            <label>{t("Intego")}<input type="number" min="0" value={form.targetQuantity || ''} onChange={e => setForm({...form, targetQuantity: e.target.value})} /></label>
+            <label>{t("Igiciro c’igice (RWF)")}<input type="number" min="0" value={form.unitPriceRwf || ''} onChange={e => setForm({...form, unitPriceRwf: e.target.value})} /></label>
           </div>
-          <label>Ubwoko bw’imisanzu, niba bihuye<select value={form.contributionTypeId || ''} onChange={e => setForm({...form, contributionTypeId: e.target.value})}><option value="">Nta misanzu — ibarwa intoki</option>{types.filter(t => t.isActive !== false).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+          <label>{t("Ubwoko bw’imisanzu, niba bihuye")}<select value={form.contributionTypeId || ''} onChange={e => setForm({...form, contributionTypeId: e.target.value})}><option value="">{t("Nta misanzu — ibarwa intoki")}</option>{types.filter(t => t.isActive !== false).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
           <Note text={msg} />
-          <div className="actions"><Btn icon="save" type="submit">{form.metricEditId ? 'Bika impinduka' : 'Bika igipimo'}</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn></div>
+          <div className="actions"><Btn icon="save" type="submit">{form.metricEditId ? t("Bika impinduka") : t("Bika igipimo")}</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn></div>
         </form>
       </Modal>
       <Modal open={sheet === 'alloc' && !!selected} title="Tanga intego" onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); if (!metric) return setMsg('Hitamo igipimo.'); if (!form.entityId) return setMsg('Hitamo aho intego igana.'); if (form.allocTarget === '' || Number(form.allocTarget) < 0) return setMsg('Andika intego iri 0 cyangwa irenga.'); const item: any = {id: Number(form.entityId), target: form.allocTarget || 0}; if (level === 'member') item.groupId = members.find((m: any) => m.id === Number(form.entityId))?.groupId; call(`/budgets/metrics/${metric.id}/allocations`, 'PUT', {church: level === 'church' ? [item] : [], section: level === 'section' ? [item] : [], group: level === 'group' ? [item] : [], member: level === 'member' ? [item] : []}); }}>
           <div className="form-row">
-            <label>Igipimo<select value={form.metricId || metric?.id || ''} onChange={e => setForm({...form, metricId: e.target.value})}>{metrics.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-            <label>Urwego<select value={level} onChange={e => setForm({...form, level: e.target.value, entityId: ''})}><option value="church">Itorero</option><option value="section">Igihande</option><option value="group">Itsinda</option><option value="member">Umwizera</option></select></label>
+            <label>{t("Igipimo")}<select value={form.metricId || metric?.id || ''} onChange={e => setForm({...form, metricId: e.target.value})}>{metrics.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+            <label>{t("Urwego")}<select value={level} onChange={e => setForm({...form, level: e.target.value, entityId: ''})}><option value="church">{t("Itorero")}</option><option value="section">{t("Igihande")}</option><option value="group">{t("Itsinda")}</option><option value="member">{t("Umwizera")}</option></select></label>
           </div>
           <div className="form-row">
-            <label>Aho igana<select value={form.entityId || ''} onChange={e => setForm({...form, entityId: e.target.value})}><option value="">Hitamo</option>{entities.map((x: any) => <option key={x.id} value={x.id}>{x.fullName || x.name}</option>)}</select></label>
-            <label>Intego<input type="number" min="0" value={form.allocTarget || ''} onChange={e => setForm({...form, allocTarget: e.target.value})} /></label>
+            <label>{t("Aho igana")}<select value={form.entityId || ''} onChange={e => setForm({...form, entityId: e.target.value})}><option value="">{t("Hitamo")}</option>{entities.map((x: any) => <option key={x.id} value={x.id}>{x.fullName || x.name}</option>)}</select></label>
+            <label>{t("Intego")}<input type="number" min="0" value={form.allocTarget || ''} onChange={e => setForm({...form, allocTarget: e.target.value})} /></label>
           </div>
           <Note text={msg} />
-          <div className="actions"><Btn icon="save" type="submit">Bika intego</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn></div>
+          <div className="actions"><Btn icon="save" type="submit">{t("Bika intego")}</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn></div>
         </form>
       </Modal>
-      <Modal open={sheet === 'achieve' && !!metric} title="Ibyagezweho bitari amafaranga" hint="Ibi bibarwa intoki. Imisanzu ibarwa yonyine." onClose={() => setSheet(null)}>
+      <Modal open={sheet === 'achieve' && !!metric} title={t("Ibyagezweho bitari amafaranga")} hint="Ibi bibarwa intoki. Imisanzu ibarwa yonyine." onClose={() => setSheet(null)}>
         <form className="form" onSubmit={event => { event.preventDefault(); const chosen = metrics.find((m: any) => m.id === Number(form.metricId)) || metrics.find((m: any) => !m.contributionTypeId); if (!chosen) return setMsg('Hitamo igipimo.'); call(`/budgets/metrics/${chosen.id}/achievement`, 'POST', {quantity: form.achievementQty || 0, ...(user.role === 'REGIONAL_LEADER' ? {churchId: form.achievementChurchId} : {})}); }}>
-          <label>Igipimo<select value={form.metricId || metrics.find((m: any) => !m.contributionTypeId)?.id || ''} onChange={e => setForm({...form, metricId: e.target.value})}>{metrics.filter((m: any) => !m.contributionTypeId).map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
-          {user.role === 'REGIONAL_LEADER' && <label>Itorero<select value={form.achievementChurchId || ''} onChange={e => setForm({...form, achievementChurchId: e.target.value})}><option value="">Hitamo</option>{churches.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
-          <label>Umubare<input type="number" min="0" value={form.achievementQty || ''} onChange={e => setForm({...form, achievementQty: e.target.value})} /></label>
+          <label>{t("Igipimo")}<select value={form.metricId || metrics.find((m: any) => !m.contributionTypeId)?.id || ''} onChange={e => setForm({...form, metricId: e.target.value})}>{metrics.filter((m: any) => !m.contributionTypeId).map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+          {user.role === 'REGIONAL_LEADER' && <label>{t("Itorero")}<select value={form.achievementChurchId || ''} onChange={e => setForm({...form, achievementChurchId: e.target.value})}><option value="">{t("Hitamo")}</option>{churches.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+          <label>{t("Umubare")}<input type="number" min="0" value={form.achievementQty || ''} onChange={e => setForm({...form, achievementQty: e.target.value})} /></label>
           <Note text={msg} />
-          <div className="actions"><Btn icon="save" type="submit">Bika ibyagezweho</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>Reka</Btn></div>
+          <div className="actions"><Btn icon="save" type="submit">{t("Bika ibyagezweho")}</Btn><Btn icon="x" tone="secondary" onClick={() => setSheet(null)}>{t("Reka")}</Btn></div>
         </form>
       </Modal>
-      <ConfirmModal open={confirm === 'budget'} title="Siba igishushanyo" hint="Period n’ibipimo byayo bizasibwa burundu." confirm="Siba" danger onClose={() => setConfirm(null)} onConfirm={() => selected && call(`/budgets/${selected.id}`, 'DELETE')} />
-      <ConfirmModal open={!!confirm && confirm !== 'budget'} title="Siba igipimo" hint="Iki gipimo n’intego zacyo bizasibwa." confirm="Siba" danger onClose={() => setConfirm(null)} onConfirm={() => confirm && confirm !== 'budget' && call(`/budgets/metrics/${confirm.metricId}`, 'DELETE')} />
+      <ConfirmModal open={confirm === 'budget'} title={t("Siba igishushanyo")} hint={t("Period n’ibipimo byayo bizasibwa burundu.")} confirm={t("Siba")} danger onClose={() => setConfirm(null)} onConfirm={() => selected && call(`/budgets/${selected.id}`, 'DELETE')} />
+      <ConfirmModal open={!!confirm && confirm !== 'budget'} title={t("Siba igipimo")} hint={t("Iki gipimo n’intego zacyo bizasibwa.")} confirm={t("Siba")} danger onClose={() => setConfirm(null)} onConfirm={() => confirm && confirm !== 'budget' && call(`/budgets/metrics/${confirm.metricId}`, 'DELETE')} />
       <div style={{marginTop: 14}}>
-        <Table empty="Nta ngengo y’imari iraboneka. Intara ni yo ikora period." rows={rows} columns={[
-          {key: 'period', label: 'Period'}, {key: 'status', label: 'Imimerere'}, {key: 'metric', label: 'Igipimo'},
-          {key: 'target', label: 'Intego'}, {key: 'achievement', label: 'Ibyagezweho'}, {key: 'percentage', label: 'Ijanisha'}, {key: 'remaining', label: 'Asigaye'}
+        <Table loading={!ready} empty={t("Nta ngengo y’imari iraboneka. Intara ni yo ikora period.")} rows={rows} columns={[
+          {key: 'period', label: t("Period")}, {key: 'status', label: 'Imimerere'}, {key: 'metric', label: t("Igipimo")},
+          {key: 'target', label: t("Intego")}, {key: 'achievement', label: 'Ibyagezweho'}, {key: 'percentage', label: 'Ijanisha'}, {key: 'remaining', label: 'Asigaye'}
         ]} />
       </div>
     </section>
@@ -974,52 +1023,58 @@ function Reports({user}: {user: User}) {
   const [kind, setKind] = useState<'believers' | 'budget' | ''>('');
   const [summary, setSummary] = useState<any>(null);
   const [msg, setMsg] = useState('');
-  useEffect(() => { Promise.all([api('/contribution-types'), api('/budgets')]).then(([t, b]) => { setTypes(t); setBudgets(b); if (b[0]) setBudgetId(String(b[0].id)); }).catch((e: any) => setMsg(e.message)); }, []);
+  const [filtersReady, setFiltersReady] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  useEffect(() => {
+    let live = true;
+    Promise.all([api('/contribution-types'), api('/budgets')]).then(([t, b]) => { if (!live) return; setTypes(t); setBudgets(b); if (b[0]) setBudgetId(String(b[0].id)); }).catch((e: any) => { if (live) setMsg(e.message); }).finally(() => { if (live) setFiltersReady(true); });
+    return () => { live = false; };
+  }, []);
   async function loadBelievers() {
     if (start && end && end < start) return setMsg('Itariki ya nyuma ntishobora kubanziriza iya mbere.');
     const q = new URLSearchParams(); if (start) q.set('start', start); if (end) q.set('end', end); if (typeId) q.set('contributionTypeId', typeId);
-    try { const [s, b] = await Promise.all([api('/reports/summary?' + q), api('/reports/believers?' + q)]); setSummary(s); setRows(b.rows || []); setKind('believers'); setMsg(''); } catch (e: any) { setMsg(e.message); }
+    try { setReportLoading(true); const [s, b] = await Promise.all([api('/reports/summary?' + q), api('/reports/believers?' + q)]); setSummary(s); setRows(b.rows || []); setKind('believers'); setMsg(''); } catch (e: any) { setMsg(e.message); } finally { setReportLoading(false); }
   }
   async function loadBudget() {
     if (!budgetId) return setMsg('Hitamo period ya budget.');
-    try { const x = await api('/reports/budget-performance?budgetId=' + budgetId); setSummary({budget: x.budget}); setRows(x.rows || []); setKind('budget'); setMsg(''); } catch (e: any) { setMsg(e.message); }
+    try { setReportLoading(true); const x = await api('/reports/budget-performance?budgetId=' + budgetId); setSummary({budget: x.budget}); setRows(x.rows || []); setKind('budget'); setMsg(''); } catch (e: any) { setMsg(e.message); } finally { setReportLoading(false); }
   }
   return (
     <section>
-      <div className="panel">
-        <h3>Hitamo raporo</h3>
-        <p className="muted">{user.role === 'SECTION' || user.role === 'GROUP' ? 'Ubona niba umwizera yatanze, utabonana amafaranga ye.' : 'Ubona amafaranga y’abizera bari mu rwego rwawe.'}</p>
+      {!filtersReady ? <Bones count={4} /> : <div className="panel">
+        <h3>{t("Hitamo raporo")}</h3>
+        <p className="muted">{user.role === 'SECTION' || user.role === 'GROUP' ? t("Ubona niba umwizera yatanze, utabonana amafaranga ye.") : t("Ubona amafaranga y’abizera bari mu rwego rwawe.")}</p>
         <div className="form">
           <div className="form-row">
-            <label>Kuva<input type="date" value={start} onChange={e => setStart(e.target.value)} /></label>
-            <label>Kugeza<input type="date" value={end} onChange={e => setEnd(e.target.value)} /></label>
+            <label>{t("Kuva")}<input type="date" value={start} onChange={e => setStart(e.target.value)} /></label>
+            <label>{t("Kugeza")}<input type="date" value={end} onChange={e => setEnd(e.target.value)} /></label>
           </div>
-          <label>Ubwoko bw’imisanzu<select value={typeId} onChange={e => setTypeId(e.target.value)}><option value="">Byose</option>{types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
-          <Btn icon="chart" onClick={loadBelievers}>Raporo y’abizera</Btn>
-          <label>Period ya budget<select value={budgetId} onChange={e => setBudgetId(e.target.value)}><option value="">Hitamo</option>{budgets.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-          <Btn icon="budget" onClick={loadBudget}>Imikorere ya budget</Btn>
+          <label>{t("Ubwoko bw’imisanzu")}<select value={typeId} onChange={e => setTypeId(e.target.value)}><option value="">{t("Byose")}</option>{types.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+          <Btn icon="chart" onClick={loadBelievers}>{t("Raporo y’abizera")}</Btn>
+          <label>{t("Period ya budget")}<select value={budgetId} onChange={e => setBudgetId(e.target.value)}><option value="">{t("Hitamo")}</option>{budgets.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+          <Btn icon="budget" onClick={loadBudget}>{t("Imikorere ya budget")}</Btn>
           <Note text={msg} />
         </div>
-      </div>
-      {summary && (
+      </div>}
+      {reportLoading ? <Bones count={6} /> : summary && (
         <div className="cards" style={{margin: '14px 0'}}>
-          {'memberCount' in summary && <div className="stat"><span>Abizera</span><b>{summary.memberCount}</b></div>}
-          {'contributionEntries' in summary && <div className="stat"><span>Inyandiko z’imisanzu</span><b>{summary.contributionEntries}</b></div>}
-          {'totalContributed' in summary && <div className="stat"><span>Igiteranyo</span><b>{money(summary.totalContributed)}</b></div>}
-          {summary.budget && <div className="stat"><span>Budget</span><b style={{fontSize: 22}}>{summary.budget.name}</b></div>}
+          {'memberCount' in summary && <div className="stat"><span>{t("Abizera")}</span><b>{summary.memberCount}</b></div>}
+          {'contributionEntries' in summary && <div className="stat"><span>{t("Inyandiko z’imisanzu")}</span><b>{summary.contributionEntries}</b></div>}
+          {'totalContributed' in summary && <div className="stat"><span>{t("Igiteranyo")}</span><b>{money(summary.totalContributed)}</b></div>}
+          {summary.budget && <div className="stat"><span>{t("Budget")}</span><b style={{fontSize: 22}}>{summary.budget.name}</b></div>}
         </div>
       )}
-      {kind === 'believers' && <Table empty="Nta bizera bahuye n’iyi raporo." rows={rows} columns={[
-        {key: 'fullName', label: 'Amazina'}, {key: 'church', label: 'Itorero'}, {key: 'section', label: 'Igihande'}, {key: 'group', label: 'Itsinda'},
-        {key: 'status', label: 'Yatanze'}, {key: 'amountRwf', label: 'Amafaranga', render: r => r.amountRwf == null ? 'Ibanga' : money(r.amountRwf)}
+      {!reportLoading && kind === 'believers' && <Table empty={t("Nta bizera bahuye n’iyi raporo.")} rows={rows} columns={[
+        {key: 'fullName', label: t("Amazina")}, {key: 'church', label: t("Itorero")}, {key: 'section', label: t("Igihande")}, {key: 'group', label: t("Itsinda")},
+        {key: 'status', label: t("Yatanze")}, {key: 'amountRwf', label: t("Amafaranga"), render: r => r.amountRwf == null ? t("Ibanga") : money(r.amountRwf)}
       ]} />}
-      {kind === 'budget' && <Table empty="Nta gipimo kiri muri iyi budget." rows={rows} columns={Object.keys(rows[0] || {metric: '', target: '', achievement: ''}).filter(k => !['id', 'budgetMetricId'].includes(k)).slice(0, 8).map(k => ({key: k, label: k}))} />}
+      {!reportLoading && kind === 'budget' && <Table empty={t("Nta gipimo kiri muri iyi budget.")} rows={rows} columns={Object.keys(rows[0] || {metric: '', target: '', achievement: ''}).filter(k => !['id', 'budgetMetricId'].includes(k)).slice(0, 8).map(k => ({key: k, label: k}))} />}
     </section>
   );
 }
 
 function placeOf(row: any) {
-  if (row.role === 'REGIONAL_LEADER') return 'Intara';
+  if (row.role === 'REGIONAL_LEADER') return t("Intara");
   if (row.role === 'CHURCH') return row.church?.name || '—';
   if (row.role === 'SECTION') return [row.church?.name, row.section?.name].filter(Boolean).join(' · ') || '—';
   return [row.church?.name, row.section?.name, row.group?.name].filter(Boolean).join(' · ') || '—';
@@ -1031,7 +1086,11 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [msg, setMsg] = useState('');
-  const load = () => Promise.all([api('/users'), api('/churches?all=1')]).then(([users, tree]) => { setRows(users); setChurches(tree); }).catch((e: any) => setMsg(e.message));
+  const [ready, setReady] = useState(false);
+  const load = () => {
+    setReady(false);
+    return Promise.all([api('/users'), api('/churches?all=1')]).then(([users, tree]) => { setRows(users); setChurches(tree); }).catch((e: any) => setMsg(e.message)).finally(() => setReady(true));
+  };
   useEffect(() => { load(); }, []);
   const sections = churches.flatMap((church: any) => (church.sections || []).filter((section: any) => section.isActive !== false).map((section: any) => ({...section, churchId: church.id, label: `${church.name} · ${section.name}`})));
   const groups = sections.flatMap((section: any) => (section.groups || []).filter((group: any) => group.isActive !== false).map((group: any) => ({...group, sectionId: section.id, churchId: section.churchId, label: `${section.label} · ${group.name}`})));
@@ -1044,7 +1103,7 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
       setMsg('');
       if (form.id) await api(`/users/${form.id}`, {method: 'PATCH', body: JSON.stringify(body)});
       else await api('/users', {method: 'POST', body: JSON.stringify(body)});
-      setMsg(form.id ? 'Ukoresha yahinduwe neza.' : 'Ukoresha yabitswe neza.');
+      setMsg(form.id ? t("Ukoresha yahinduwe neza.") : t("Ukoresha yabitswe neza."));
       setOpen(false);
       setForm({role: 'CHURCH', churchId: homeChurchId || ''});
       load();
@@ -1053,7 +1112,7 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
   async function toggle(row: any) {
     try {
       await api(`/users/${row.id}`, {method: 'PATCH', body: JSON.stringify({isActive: row.isActive === false})});
-      setMsg(row.isActive === false ? 'Ukoresha yasubijwe neza.' : 'Ukoresha yahagaritswe neza.');
+      setMsg(row.isActive === false ? t("Ukoresha yasubijwe neza.") : t("Ukoresha yahagaritswe neza."));
       load();
     } catch (e: any) { setMsg(e.message); }
   }
@@ -1061,41 +1120,41 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
     <section>
       <div className="page-tools">
         <label className="search"><Icon name="search" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Shakisha ukoresha" /></label>
-        <Btn icon="plus" onClick={() => { setMsg(''); setForm({role: 'CHURCH', churchId: homeChurchId || ''}); setOpen(true); }}>Ukoresha</Btn>
+        <Btn icon="plus" onClick={() => { setMsg(''); setForm({role: 'CHURCH', churchId: homeChurchId || ''}); setOpen(true); }}>{t("Ukoresha")}</Btn>
       </div>
       <Note text={open ? '' : msg} />
-      <Table empty="Nta mukoresha abonetse." rows={shown} columns={[
-        {key: 'fullName', label: 'Amazina'},
+      <Table loading={!ready} empty={t("Nta mukoresha abonetse.")} rows={shown} columns={[
+        {key: 'fullName', label: t("Amazina")},
         {key: 'username', label: 'Username'},
-        {key: 'role', label: 'Urwego', render: row => roleLabel[row.role as Role] || row.role},
-        {key: 'place', label: 'Aho ayobora', render: placeOf},
-        {key: 'isActive', label: 'Akora', render: row => row.isActive === false ? 'Oya' : 'Yego'},
+        {key: 'role', label: t("Urwego"), render: row => t(roleLabel[row.role as Role]) || row.role},
+        {key: 'place', label: t("Aho ayobora"), render: placeOf},
+        {key: 'isActive', label: t("Akora"), render: row => row.isActive === false ? t("Oya") : t("Yego")},
         {key: 'action', label: '', render: row => <span className="row-actions">
-          <Act icon="pencil" label="Hindura" onClick={() => { setMsg(''); setForm({id: row.id, fullName: row.fullName, username: row.username, role: row.role, churchId: row.churchId || '', sectionId: row.sectionId || '', groupId: row.groupId || '', password: ''}); setOpen(true); }} />
-          {row.id !== selfId && <Act icon={row.isActive === false ? 'undo' : 'ban'} tone={row.isActive === false ? 'edit' : 'danger'} label={row.isActive === false ? 'Subiza' : 'Hagarika'} onClick={() => toggle(row)} />}
+          <Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm({id: row.id, fullName: row.fullName, username: row.username, role: row.role, churchId: row.churchId || '', sectionId: row.sectionId || '', groupId: row.groupId || '', password: ''}); setOpen(true); }} />
+          {row.id !== selfId && <Act icon={row.isActive === false ? 'undo' : 'ban'} tone={row.isActive === false ? 'edit' : 'danger'} label={row.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggle(row)} />}
         </span>}
       ]} />
-      <Modal open={open} title={form.id ? 'Hindura ukoresha' : 'Ongeramo ukoresha'} hint={regional ? 'Itorero, igihande, n’itsinda bigomba kuba bifite ukoresha uyobora ayo makuru.' : 'Ushobora guha konti abayobora itorero ryawe, igihande, n’itsinda.'} onClose={() => setOpen(false)}>
+      <Modal open={open} title={form.id ? t("Hindura ukoresha") : t("Ongeramo ukoresha")} hint={regional ? t("Itorero, igihande, n’itsinda bigomba kuba bifite ukoresha uyobora ayo makuru.") : t("Ushobora guha konti abayobora itorero ryawe, igihande, n’itsinda.")} onClose={() => setOpen(false)}>
         <form className="form" onSubmit={event => { event.preventDefault(); save(); }}>
           <div className="form-row">
-            <label>Amazina<input value={form.fullName || ''} onChange={e => setForm({...form, fullName: e.target.value})} autoFocus /></label>
+            <label>{t("Amazina")}<input value={form.fullName || ''} onChange={e => setForm({...form, fullName: e.target.value})} autoFocus /></label>
             <label>Username<input value={form.username || ''} onChange={e => setForm({...form, username: e.target.value})} autoComplete="off" /></label>
           </div>
-          <label>Ijambobanga<input type="password" value={form.password || ''} onChange={e => setForm({...form, password: e.target.value})} autoComplete="new-password" placeholder={form.id ? 'Siga ubusa niba udahindura' : ''} /></label>
-          <label>Urwego<select value={form.role || 'CHURCH'} onChange={e => setForm({...form, role: e.target.value, churchId: regional ? '' : (homeChurchId || ''), sectionId: '', groupId: ''})}>
-            <option value="CHURCH">Itorero</option>
-            <option value="SECTION">Igihande</option>
-            <option value="GROUP">Itsinda</option>
-            {regional && <option value="REGIONAL_LEADER">Intara</option>}
+          <label>{t("Ijambobanga")}<input type="password" value={form.password || ''} onChange={e => setForm({...form, password: e.target.value})} autoComplete="new-password" placeholder={form.id ? t("Siga ubusa niba udahindura") : ''} /></label>
+          <label>{t("Urwego")}<select value={form.role || 'CHURCH'} onChange={e => setForm({...form, role: e.target.value, churchId: regional ? '' : (homeChurchId || ''), sectionId: '', groupId: ''})}>
+            <option value="CHURCH">{t("Itorero")}</option>
+            <option value="SECTION">{t("Igihande")}</option>
+            <option value="GROUP">{t("Itsinda")}</option>
+            {regional && <option value="REGIONAL_LEADER">{t("Intara")}</option>}
           </select></label>
-          {form.role === 'CHURCH' && regional && <label>Itorero<select value={form.churchId || ''} onChange={e => setForm({...form, churchId: e.target.value})}><option value="">Hitamo</option>{churches.filter((church: any) => church.isActive !== false).map((church: any) => <option key={church.id} value={church.id}>{church.name}</option>)}</select></label>}
+          {form.role === 'CHURCH' && regional && <label>{t("Itorero")}<select value={form.churchId || ''} onChange={e => setForm({...form, churchId: e.target.value})}><option value="">{t("Hitamo")}</option>{churches.filter((church: any) => church.isActive !== false).map((church: any) => <option key={church.id} value={church.id}>{church.name}</option>)}</select></label>}
           {form.role === 'CHURCH' && !regional && <p className="muted">{churches[0]?.name || 'Itorero ryawe'}</p>}
-          {form.role === 'SECTION' && <label>Igihande<select value={form.sectionId || ''} onChange={e => setForm({...form, sectionId: e.target.value})}><option value="">Hitamo</option>{sections.map((section: any) => <option key={section.id} value={section.id}>{section.label}</option>)}</select></label>}
-          {form.role === 'GROUP' && <label>Itsinda<select value={form.groupId || ''} onChange={e => setForm({...form, groupId: e.target.value})}><option value="">Hitamo</option>{groups.map((group: any) => <option key={group.id} value={group.id}>{group.label}</option>)}</select></label>}
+          {form.role === 'SECTION' && <label>{t("Igihande")}<select value={form.sectionId || ''} onChange={e => setForm({...form, sectionId: e.target.value})}><option value="">{t("Hitamo")}</option>{sections.map((section: any) => <option key={section.id} value={section.id}>{section.label}</option>)}</select></label>}
+          {form.role === 'GROUP' && <label>{t("Itsinda")}<select value={form.groupId || ''} onChange={e => setForm({...form, groupId: e.target.value})}><option value="">{t("Hitamo")}</option>{groups.map((group: any) => <option key={group.id} value={group.id}>{group.label}</option>)}</select></label>}
           <Note text={msg} />
           <div className="actions">
-            <Btn icon="save" type="submit">{form.id ? 'Bika impinduka' : 'Bika ukoresha'}</Btn>
-            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>Reka</Btn>
+            <Btn icon="save" type="submit">{form.id ? t("Bika impinduka") : t("Bika ukoresha")}</Btn>
+            <Btn icon="x" tone="secondary" onClick={() => setOpen(false)}>{t("Reka")}</Btn>
           </div>
         </form>
       </Modal>
@@ -1105,22 +1164,26 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
 function Devices() {
   const [rows, setRows] = useState<any[]>([]);
   const [msg, setMsg] = useState('');
-  const load = () => api('/devices').then(setRows).catch((e: any) => setMsg(e.message));
+  const [ready, setReady] = useState(false);
+  const load = () => {
+    setReady(false);
+    return api('/devices').then(setRows).catch((e: any) => setMsg(e.message)).finally(() => setReady(true));
+  };
   useEffect(() => { load(); }, []);
   async function act(id: number, action: 'approve' | 'revoke') {
-    try { await api(`/devices/${id}/${action}`, {method: 'POST', body: '{}'}); setMsg(action === 'approve' ? 'Device yemewe. Ishobora kubika ibikorwa offline.' : 'Uburenganzira bwa device bwakuweho.'); load(); } catch (e: any) { setMsg(e.message); }
+    try { await api(`/devices/${id}/${action}`, {method: 'POST', body: '{}'}); setMsg(action === 'approve' ? t("Device yemewe. Ishobora kubika ibikorwa offline.") : t("Uburenganzira bwa device bwakuweho.")); load(); } catch (e: any) { setMsg(e.message); }
   }
   return (
     <section>
-      <p className="muted">Emeza ibikoresho byemewe gukora nta internet. Ibitaramezwa bishobora kwinjira gusa iyo internet iriho.</p>
+      <p className="muted">{t("Emeza ibikoresho byemewe gukora nta internet. Ibitaramezwa bishobora kwinjira gusa iyo internet iriho.")}</p>
       <Note text={msg} />
-      <Table empty="Nta device yasabye gukora offline. Iyo Web cyangwa Desktop iwinjira, igaragara hano." rows={rows} columns={[
-        {key: 'user', label: 'Ukoresha', render: d => d.user?.fullName || d.user?.username || '—'},
-        {key: 'role', label: 'Urwego', render: d => roleLabel[d.user?.role as Role] || d.user?.role || '—'},
+      <Table loading={!ready} empty={t("Nta device yasabye gukora offline. Iyo Web cyangwa Desktop iwinjira, igaragara hano.")} rows={rows} columns={[
+        {key: 'user', label: t("Ukoresha"), render: d => d.user?.fullName || d.user?.username || '—'},
+        {key: 'role', label: t("Urwego"), render: d => t(roleLabel[d.user?.role as Role]) || d.user?.role || '—'},
         {key: 'label', label: 'Device', render: d => d.label || d.deviceId},
         {key: 'status', label: 'Imimerere', render: d => d.isApproved && !d.revokedAt ? 'Yemewe' : d.revokedAt ? 'Yakuweho' : 'Itegereje'},
         {key: 'seen', label: 'Yaherukaga', render: d => when(d.lastSeenAt)},
-        {key: 'action', label: '', render: d => d.isApproved && !d.revokedAt ? <Act icon="ban" tone="danger" label="Kuraho" onClick={() => act(d.id, 'revoke')} /> : <Btn icon="check" onClick={() => act(d.id, 'approve')}>Emeza</Btn>}
+        {key: 'action', label: '', render: d => d.isApproved && !d.revokedAt ? <Act icon="ban" tone="danger" label="Kuraho" onClick={() => act(d.id, 'revoke')} /> : <Btn icon="check" onClick={() => act(d.id, 'approve')}>{t("Emeza")}</Btn>}
       ]} />
     </section>
   );
@@ -1134,6 +1197,7 @@ function App() {
   const [page, setPage] = useState<PageId>('Dashboard');
   const [data, setData] = useState<any[]>([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const stop = watchConnectivity(on => {
@@ -1147,42 +1211,48 @@ function App() {
   useEffect(() => {
     if (!user) return;
     const path = page === 'Churches' ? '/members' : page === 'Contributions' ? '/contributions' : page === 'Ishuri ryo ku Isabato' ? '/sabbath-school' : page === 'Expenses' ? '/expenses' : page === 'Assets' ? '/assets' : null;
-    if (!path) { setData([]); return; }
-    api(path).then(x => { setData(Array.isArray(x) ? x : []); setError(''); }).catch((e: any) => { setData([]); setError(e.message); });
+    if (!path) { setData([]); setLoading(false); return; }
+    let live = true;
+    setLoading(true);
+    setData([]);
+    api(path).then(x => { if (!live) return; setData(Array.isArray(x) ? x : []); setError(''); }).catch((e: any) => { if (!live) return; setData([]); setError(e.message); }).finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
   }, [page, user, tick]);
+  const {lang} = useLang();
   const allowed = user ? pages[user.role] : [];
   const current = nav[allowed.includes(page) ? page : 'Dashboard'];
-  useEffect(() => { document.title = `${current.title} · Intara ya Bwuzuri`; }, [current.title]);
+  useEffect(() => { document.title = `${t(current.title)} · Intara ya Bwuzuri`; }, [current.title, lang]);
   const refresh = () => setTick(n => n + 1);
   if (!user) return <Login done={setUser} />;
   return (
     <div className="shell">
       <div className="sabbath">
-        <img src="/brand/sda-symbol-white.svg" alt="Ikimenyetso cy'Itorero ry'Abadiventisiti b'Umunsi wa Karindwi" />
+        <img src="/brand/sda-symbol-white.svg" alt={t("Ikimenyetso cy'Itorero ry'Abadiventisiti b'Umunsi wa Karindwi")} />
       </div>
       <aside>
         <div className="brand"><small>Intara ya Bwuzuri</small><strong>Bwuzuri</strong></div>
-        <nav>{allowed.map(id => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><Icon name={nav[id].icon} /><span className="nav-copy">{nav[id].title}<small>{nav[id].hint}</small></span></button>)}</nav>
-        <div className="who"><strong>{user.fullName}</strong><span>{roleLabel[user.role]}</span><button className="with-ico" onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null); }}><Icon name="logout" />Sohoka</button></div>
+        <nav>{allowed.map(id => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><Icon name={nav[id].icon} /><span className="nav-copy">{t(nav[id].title)}<small>{t(nav[id].hint)}</small></span></button>)}</nav>
+        <div className="who"><strong>{user.fullName}</strong><span>{t(roleLabel[user.role])}</span><button className="with-ico" onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null); }}><Icon name="logout" />{t("Sohoka")}</button></div>
       </aside>
       <div className="workspace">
         <header className="topbar">
           <div className="pills">
-            <span className={online ? 'pill' : 'pill warn'}>{online ? 'Online' : 'Offline'}</span>
-            <span className="pill">{trusted ? 'Offline yemewe' : 'Offline itarakemererwa'}</span>
-            {sync && <span className="pill">{sync}</span>}
+            <span className={online ? 'pill' : 'pill warn'}>{online ? t("Online") : t("Offline")}</span>
+            <span className="pill">{trusted ? t("Offline yemewe") : t("Offline itarakemererwa")}</span>
+            {sync && <span className="pill">{t(sync)}</span>}
           </div>
+          <LanguageSwitch />
         </header>
         <main>
-          <div className="page-head"><div><h1>{current.title}</h1><p>{current.about}</p></div></div>
+          <div className="page-head"><div><h1>{t(current.title)}</h1><p>{t(current.about)}</p></div></div>
           {error && <Note text={error} />}
           {page === 'Dashboard' && <Dashboard user={user} />}
-          {page === 'Churches' && <Churches user={user} rows={data} refresh={refresh} />}
-          {page === 'Contributions' && <Contributions rows={data} refresh={refresh} />}
+          {page === 'Churches' && <Churches user={user} rows={data} refresh={refresh} loading={loading} />}
+          {page === 'Contributions' && <Contributions rows={data} refresh={refresh} loading={loading} />}
           {page === 'Budgets' && <Budgets user={user} />}
-          {page === 'Ishuri ryo ku Isabato' && <Sabbath user={user} rows={data} refresh={refresh} />}
-          {page === 'Expenses' && <Expenses user={user} rows={data} refresh={refresh} />}
-          {page === 'Assets' && <Assets user={user} rows={data} refresh={refresh} />}
+          {page === 'Ishuri ryo ku Isabato' && <Sabbath user={user} rows={data} refresh={refresh} loading={loading} />}
+          {page === 'Expenses' && <Expenses user={user} rows={data} refresh={refresh} loading={loading} />}
+          {page === 'Assets' && <Assets user={user} rows={data} refresh={refresh} loading={loading} />}
           {page === 'Reports' && <Reports user={user} />}
           {page === 'Users' && <Accounts selfId={user.id} regional={user.role === 'REGIONAL_LEADER'} homeChurchId={user.churchId} />}
           {page === 'Devices' && <Devices />}
@@ -1192,4 +1262,4 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(<LangProvider><App /></LangProvider>);

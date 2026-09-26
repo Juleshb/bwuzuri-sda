@@ -10,3 +10,4 @@ export const can = {
   sabbathSchoolCreate:(r:Role)=>r==='GROUP'
 };
 export const normalizePhone=(v:string)=>v.replace(/[\s()-]/g,'').replace(/^0(?=7)/,'+250');
+export {translate, type Lang} from './i18n';

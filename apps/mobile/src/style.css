@@ -15,7 +15,20 @@ h1, h2 { font-family: Palatino, Georgia, serif; }
 h1 { font-size: clamp(26px, 7vw, 34px); line-height: 1.15; margin: 0 0 8px; }
 .card, form.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 12px 0; display: grid; gap: 10px; }
 label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.secret { position: relative; display: block; }
+.secret input { padding-right: 46px; }
+button.eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.bones { display: grid; gap: 10px; }
+.m-stats > .bones { display: contents; }
+.bone { display: block; height: 16px; border-radius: 8px; background: linear-gradient(90deg, #efeae2 0%, #f8f5f0 45%, #efeae2 100%); background-size: 200% 100%; animation: bone 1.15s ease-in-out infinite; }
+.bone.row { height: 58px; }
+.bone.card { height: 92px; border-radius: 16px; }
+@keyframes bone { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .bone { animation: none; } }
 input, select, textarea, button { padding: 12px; border-radius: 10px; border: 1px solid #d9d1c3; background: white; }
+.lang { display: flex; gap: 4px; width: max-content; margin: 0 0 12px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: white; }
+.lang button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+.lang button.on { background: var(--denim); color: white; }
 button.primary, nav button.active { background: var(--forest); color: white; border: 0; }
 button.secondary { background: transparent; color: var(--forest); }
 button.danger { background: var(--danger); color: white; border: 0; }

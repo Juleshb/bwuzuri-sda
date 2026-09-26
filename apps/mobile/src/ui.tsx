@@ -1,7 +1,8 @@
+import {t} from './i18n';
 import React, {useEffect, useState} from 'react';
 import {createPortal} from 'react-dom';
 
-export type IconName = 'plus' | 'pencil' | 'ban' | 'undo' | 'trash' | 'check' | 'x' | 'save' | 'archive' | 'logout' | 'login' | 'home' | 'church' | 'coins' | 'book' | 'chart';
+export type IconName = 'plus' | 'pencil' | 'ban' | 'undo' | 'trash' | 'check' | 'x' | 'save' | 'archive' | 'logout' | 'login' | 'home' | 'church' | 'coins' | 'book' | 'chart' | 'eye' | 'eye-off';
 
 export function Icon({name}: {name: IconName}) {
   const common = {fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const};
@@ -23,6 +24,8 @@ export function Icon({name}: {name: IconName}) {
       {name === 'coins' && <><ellipse {...common} cx="12" cy="6" rx="8" ry="3" /><path {...common} d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>}
       {name === 'book' && <path {...common} d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5z" />}
       {name === 'chart' && <path {...common} d="M4 20V4M4 20h16M8 16v-4M12 16V8M16 16v-6" />}
+      {name === 'eye' && <><path {...common} d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle {...common} cx="12" cy="12" r="3" /></>}
+      {name === 'eye-off' && <><path {...common} d="M3 3l18 18M10.6 10.6a3 3 0 0 0 4.2 4.2M9.9 5.1A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-3.2 4.2M6.1 6.1C3.6 7.9 2 12 2 12a18.6 18.6 0 0 0 6.1 6.5" /></>}
     </svg>
   );
 }
@@ -46,7 +49,7 @@ export function Modal({open, title, onClose, children}: {open: boolean; title: s
   return createPortal(
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title} onMouseDown={event => event.stopPropagation()}>
-        <header className="modal-head"><h2>{title}</h2><button className="act" type="button" aria-label="Funga" onClick={onClose}><Icon name="x" /></button></header>
+        <header className="modal-head"><h2>{title}</h2><button className="act" type="button" aria-label={t("Funga")} onClick={onClose}><Icon name="x" /></button></header>
         {children}
       </div>
     </div>,
@@ -59,9 +62,9 @@ export function ReasonModal({open, title, onClose, onConfirm}: {open: boolean; t
   useEffect(() => { if (open) setReason(''); }, [open]);
   return (
     <Modal open={open} title={title} onClose={onClose}>
-      <label>Impamvu<textarea value={reason} onChange={event => setReason(event.target.value)} /></label>
-      <Btn icon="ban" tone="danger" onClick={() => { if (reason.trim()) onConfirm(reason.trim()); }}>Hagarika</Btn>
-      <Btn icon="x" tone="secondary" onClick={onClose}>Reka</Btn>
+      <label>{t("Impamvu")}<textarea value={reason} onChange={event => setReason(event.target.value)} /></label>
+      <Btn icon="ban" tone="danger" onClick={() => { if (reason.trim()) onConfirm(reason.trim()); }}>{t("Hagarika")}</Btn>
+      <Btn icon="x" tone="secondary" onClick={onClose}>{t("Reka")}</Btn>
     </Modal>
   );
 }

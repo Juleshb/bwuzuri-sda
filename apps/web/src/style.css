@@ -36,6 +36,18 @@ p { line-height: 1.5; }
 .gate-card form { padding: 28px; display: grid; gap: 14px; }
 .gate-card h2 { margin: 0; font-size: 32px; }
 label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.secret { position: relative; display: block; }
+.secret input { padding-right: 46px; }
+button.eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); }
+.bones { display: grid; gap: 10px; }
+.kpi-grid > .bones, .dash-charts > .bones { display: contents; }
+.bone { display: block; height: 16px; border-radius: 8px; background: linear-gradient(90deg, #efeae2 0%, #f8f5f0 45%, #efeae2 100%); background-size: 200% 100%; animation: bone 1.15s ease-in-out infinite; }
+.bone.row { height: 48px; }
+.bone.card { height: 108px; border-radius: 16px; }
+.bone.panel { height: 220px; border-radius: 16px; }
+.kpi-grid .bone.card, .dash-charts .bone.panel, .dash-panels .bone.panel { min-width: 0; }
+@keyframes bone { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .bone { animation: none; } }
 input, select, textarea { width: 100%; padding: 12px 13px; border-radius: 10px; border: 1px solid #d9d1c3; background: white; }
 textarea { min-height: 80px; resize: vertical; }
 button.primary, .actions button, .form button, nav.mobile-nav button.active { background: var(--forest); color: white; border: 0; border-radius: 10px; padding: 12px 14px; }
@@ -88,6 +100,10 @@ aside nav button.active small { color: #d5e3f2; }
 .topbar { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 16px 28px 0; }
 .pills { display: flex; gap: 8px; flex-wrap: wrap; }
 .pill { border: 1px solid var(--line); background: white; border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+.lang { display: flex; gap: 4px; width: max-content; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: white; }
+.lang button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+.lang button.on { background: var(--denim); color: white; }
+.gate-card > .lang { margin: 0 0 14px; }
 .pill.warn { background: #f8e8e8; color: var(--danger); }
 main { padding: 8px 28px 40px; }
 .page-head { display: flex; justify-content: space-between; gap: 18px; align-items: end; margin: 8px 0 18px; }
