@@ -11,9 +11,9 @@ const sid = () => crypto.randomUUID();
 const roleLabel: Record<Role, string> = {REGIONAL_LEADER: 'Intara', CHURCH: 'Itorero', SECTION: 'Igihande', GROUP: 'Itsinda'};
 const roleHelp: Record<Role, string> = {
   REGIONAL_LEADER: 'Urebere amatorero yose.',
-  CHURCH: 'Wandika abizera, imisanzu, n’ibikoresho by’itorero ryawe. Uyobora n’abakoresha baryo.',
-  SECTION: 'Wandika abizera bo mu gihande cyawe. Ntushobora kwandika imisanzu.',
-  GROUP: 'Wandika abizera n’imibare y’Ishuri ryo ku Isabato.'
+  CHURCH: 'Wandika abizera mu bihande byose by’itorero ryawe, n’imisanzu n’ibikoresho. Uyobora n’abakoresha baryo.',
+  SECTION: 'Wandika abizera mu matsinda yose y’igihande cyawe. Ntushobora kwandika imisanzu.',
+  GROUP: 'Wandika abizera mu itsinda ryawe gusa, n’imibare y’Ishuri ryo ku Isabato.'
 };
 const pageLabel: Record<string, string> = {
   Ahabanza: 'Ahabanza',
@@ -26,6 +26,129 @@ const pageLabel: Record<string, string> = {
   Konti: 'Abakoresha'
 };
 
+function localDay(offset = 0) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+type AbsenceMark = {present: '' | 'yes' | 'no'; reason: '' | 'sick' | 'other_church' | 'other'; absenceNote: string};
+const absenceLabel: Record<string, string> = {sick: 'Ararwaye', other_church: 'Yagiye mu yindi torero', other: 'Ikindi'};
+function blankMark(): AbsenceMark {
+  return {present: '', reason: '', absenceNote: ''};
+}
+function markFromMember(member: any): AbsenceMark {
+  if (member.present === true) return {present: 'yes', reason: '', absenceNote: ''};
+  if (member.present === false && absenceLabel[member.absenceReason]) return {present: 'no', reason: member.absenceReason, absenceNote: member.absenceNote || ''};
+  return blankMark();
+}
+function absenceText(row: any) {
+  if (row.present) return t("Yaritabiriye");
+  const label = absenceLabel[row.absenceReason] ? t(absenceLabel[row.absenceReason]) : t("Ntiyaritabiriye");
+  return row.absenceNote ? `${label}: ${row.absenceNote}` : label;
+}
+function MobileAttendance({role, online}: {role: Role; online: boolean}) {
+  const writer = role === 'GROUP';
+  const [date, setDate] = useState(localDay());
+  const [from, setFrom] = useState(localDay(-84));
+  const [to, setTo] = useState(localDay());
+  const [sheet, setSheet] = useState<any>(null);
+  const [marks, setMarks] = useState<Record<number, AbsenceMark>>({});
+  const [report, setReport] = useState<any>(null);
+  const [ready, setReady] = useState(false);
+  const [note, setNote] = useState('');
+  useEffect(() => {
+    if (!writer) return;
+    let live = true;
+    setReady(false);
+    api(`/sabbath-school/attendance?date=${date}`).then(value => {
+      if (!live) return;
+      setSheet(value);
+      const next: Record<number, AbsenceMark> = {};
+      for (const member of value.members || []) next[member.id] = markFromMember(member);
+      setMarks(next);
+    }).catch((e: any) => { if (live) setNote(e.message); }).finally(() => { if (live) setReady(true); });
+    return () => { live = false; };
+  }, [writer, date]);
+  useEffect(() => {
+    let live = true;
+    api(`/sabbath-school/attendance/report?from=${from}&to=${to}`).then(value => { if (live) setReport(value); }).catch((e: any) => { if (live) setNote(e.message); });
+    return () => { live = false; };
+  }, [from, to]);
+  async function saveAttendance() {
+    if (!online) return setNote('Nta internet. Ntibyabitswe.');
+    const people = sheet?.members || [];
+    for (const member of people) {
+      const mark = marks[member.id] || blankMark();
+      if (!mark.present) return setNote('Hitamo niba yaje cyangwa ataje.');
+      if (mark.present === 'no' && !mark.reason) return setNote('Hitamo impamvu yo kutaza.');
+      if (mark.reason === 'other' && !mark.absenceNote.trim()) return setNote('Andika impamvu.');
+    }
+    try {
+      setNote('');
+      await api('/sabbath-school/attendance', {method: 'PUT', body: JSON.stringify({date, marks: people.map((member: any) => {
+        const mark = marks[member.id] || blankMark();
+        const present = mark.present === 'yes';
+        return {memberId: member.id, present, absenceReason: present ? null : mark.reason, absenceNote: mark.reason === 'other' ? mark.absenceNote.trim() : null};
+      })})});
+      setNote('Kwitabira byabitswe neza.');
+      setReport(await api(`/sabbath-school/attendance/report?from=${from}&to=${to}`));
+    } catch (e: any) { setNote(e.message); }
+  }
+  const present = report?.present || 0;
+  const absent = report?.absent || 0;
+  return (
+    <section>
+      {writer ? (
+        <form className="attend-sheet" onSubmit={event => { event.preventDefault(); saveAttendance(); }}>
+          <h2>{t("Ifishi yo kwitabira")}</h2>
+          <p className="muted">{t("Banza hitamo niba umwizera yaje cyangwa ataje. Ku utaje, hitamo impamvu.")}</p>
+          <label>{t("Itariki")}<input type="date" value={date} onChange={e => setDate(e.target.value)} /></label>
+          {!ready && <Bones count={4} />}
+          {ready && !(sheet?.members || []).length && <p className="muted">{t("Nta mwizera ukora muri iki tsinda.")}</p>}
+          {ready && (sheet?.members || []).map((member: any) => {
+            const mark = marks[member.id] || blankMark();
+            return (
+              <div className="attend-row" key={member.id}>
+                <strong>{member.fullName}</strong>
+                <div className="attend-choice">
+                  <button type="button" className="here" aria-pressed={mark.present === 'yes'} onClick={() => setMarks(current => ({...current, [member.id]: {present: 'yes', reason: '', absenceNote: ''}}))}>{t("Abaje")}</button>
+                  <button type="button" className="away" aria-pressed={mark.present === 'no'} onClick={() => setMarks(current => ({...current, [member.id]: {...(current[member.id] || blankMark()), present: 'no'}}))}>{t("Abatabaye")}</button>
+                </div>
+                <div className="attend-extra">
+                  {mark.present === 'no' && <label>{t("Impamvu yo kutaza")}<select value={mark.reason} onChange={e => setMarks(current => ({...current, [member.id]: {...(current[member.id] || blankMark()), present: 'no', reason: e.target.value as AbsenceMark['reason'], absenceNote: e.target.value === 'other' ? (current[member.id]?.absenceNote || '') : ''}}))}><option value="">{t("Hitamo")}</option><option value="sick">{t("Ararwaye")}</option><option value="other_church">{t("Yagiye mu yindi torero")}</option><option value="other">{t("Ikindi")}</option></select></label>}
+                  {mark.present === 'no' && mark.reason === 'other' && <label>{t("Impamvu")}<input value={mark.absenceNote} onChange={e => setMarks(current => ({...current, [member.id]: {...(current[member.id] || blankMark()), absenceNote: e.target.value}}))} /></label>}
+                </div>
+              </div>
+            );
+          })}
+          {ready && (sheet?.members || []).length > 0 && <Btn icon="save" type="submit" disabled={!online}>{t("Bika ifishi")}</Btn>}
+        </form>
+      ) : <p className="muted">{t("Urebere raporo yo kwitabira. Kwiyandika bikorwa n’Itsinda gusa.")}</p>}
+      {note && <p className={note.includes('neza') || note.includes('Byabitswe') ? 'ok' : 'bad'}>{t(note)}</p>}
+      <label>{t("Kuva")}<input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+      <label>{t("Kugeza")}<input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+      <div className="m-stats">
+        <article><span>{t("Abaje")}</span><b>{present}</b></article>
+        <article><span>{t("Abatabaye")}</span><b>{absent}</b></article>
+      </div>
+      {(report?.groups || []).map((row: any) => (
+        <div className="row" key={`${row.date}-${row.group}`}>
+          <span>{row.date} · {role === 'GROUP' ? row.group : `${row.church} · ${row.section} · ${row.group}`}</span>
+          <span className="muted">{t("Abaje")} {row.present} · {t("Abatabaye")} {row.absent}</span>
+        </div>
+      ))}
+      {(report?.rows || []).slice(0, 40).map((row: any) => (
+        <div className="row" key={row.id}>
+          <span>{row.fullName}</span>
+          <span className="muted">{row.date} · {absenceText(row)}</span>
+        </div>
+      ))}
+      {report && !(report.groups || []).length && <p className="muted">{t("Nta kwitabira kwanditswe muri iki gihe.")}</p>}
+    </section>
+  );
+}
 function Bones({count = 5, kind = 'row'}: {count?: number; kind?: 'row' | 'card'}) {
   return <div className="bones" aria-busy="true" aria-label={t("Tegereza amakuru")}>{Array.from({length: count}, (_, index) => <span className={`bone ${kind}`} key={index} />)}</div>;
 }
@@ -75,6 +198,7 @@ function App() {
   const [online, setOnline] = useState(navigator.onLine);
   const [user, setUser] = useState<User | null>(() => { try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; } });
   const [page, setPage] = useState('Ahabanza');
+  const [schoolTab, setSchoolTab] = useState<'stats' | 'attendance'>('stats');
   const [rows, setRows] = useState<any[]>([]);
   const [churches, setChurches] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>({members: [], types: [], expenseTypes: [], assetCategories: []});
@@ -123,7 +247,11 @@ function App() {
 
   if (!user) return <Login done={setUser} />;
   const pages = pagesFor(user.role);
-  const groups = churches.flatMap(c => (c.sections || []).flatMap((s: any) => (s.groups || []).map((g: any) => ({id: g.id, label: `${c.name} · ${s.name} · ${g.name}`}))));
+  const sections = churches.flatMap(c => (c.sections || []).map((s: any) => ({id: s.id, name: s.name, groups: s.groups || []})));
+  const groups = user.role === 'CHURCH'
+    ? (sections.find(section => String(section.id) === String(form.sectionId))?.groups || []).map((group: any) => ({id: group.id, label: group.name}))
+    : sections.flatMap(section => (section.groups || []).map((group: any) => ({id: group.id, label: `${section.name} · ${group.name}`})));
+  const ownGroupName = sections.flatMap(section => (section.groups || []).map((group: any) => group.name)).join(', ');
 
   async function save(path: string, body?: any, method = 'POST') {
     if (!online) return setMessage('Nta internet. Ntibyabitswe.');
@@ -157,7 +285,7 @@ function App() {
           ) : (
             <>
               <div className="m-stats">
-                <article><span className="kpi-mark"><Icon name="church" /></span><span>{t("Amatorero")}</span><b>{churches.length}</b><small>{t("Mu rwego rwawe")}</small></article>
+                <article><span className="kpi-mark"><Icon name="church" /></span><span>{t(user.role === 'REGIONAL_LEADER' ? "Amatorero" : "Itorero")}</span><b>{churches.length}</b><small>{t("Mu rwego rwawe")}</small></article>
                 <article><span className="kpi-mark"><Icon name="home" /></span><span>{t("Ibihande")}</span><b>{churches.reduce((n: number, c: any) => n + (c.sections?.length || 0), 0)}</b><small>{t("Bikora")}</small></article>
                 <article><span className="kpi-mark"><Icon name="book" /></span><span>{t("Amatsinda")}</span><b>{churches.reduce((n: number, c: any) => n + (c.sections || []).reduce((m: number, s: any) => m + (s.groups?.length || 0), 0), 0)}</b><small>{t("Akora")}</small></article>
                 <article><span className="kpi-mark"><Icon name="chart" /></span><span>{t("Abizera")}</span><b>{summary?.memberCount ?? '—'}</b><small>{t("Bakora")}</small></article>
@@ -172,12 +300,16 @@ function App() {
 
       {page === 'Abizera' && can.memberCreate(user.role) && <Btn icon="plus" onClick={() => { setForm({}); setOpen(true); }}>{t("Umwizera")}</Btn>}
       <Modal open={open && page === 'Abizera'} title={form.id ? t("Hindura umwizera") : t("Ongeramo umwizera")} onClose={() => setOpen(false)}>
-        <p className="muted">{t("Telefoni, niba uyandika, igomba kuba iyihariye.")}</p>
+        <p className="muted">{t(user.role === 'CHURCH' ? "Itorero ryandika umwizera mu gihande cyose, mu itsinda iryo ari ryo ryose." : user.role === 'SECTION' ? "Igihande ryandika umwizera mu itsinda ryose ryaryo." : "Itsinda ryandika umwizera mu itsinda ryaryo gusa.")}</p>
         <label>{t("Amazina")}<input value={form.fullName || ''} onChange={e => setForm({...form, fullName: e.target.value})} /></label>
         <label>{t("Telefoni")}<input value={form.phoneNumber || ''} onChange={e => setForm({...form, phoneNumber: e.target.value})} placeholder="+250..." /></label>
-        {user.role !== 'GROUP' && <label>{t("Itsinda")}<select value={form.groupId || ''} onChange={e => setForm({...form, groupId: e.target.value})}><option value="">{t("Hitamo")}</option>{groups.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>}
+        {user.role === 'CHURCH' && <label>{t("Igihande")}<select value={form.sectionId || ''} onChange={e => setForm({...form, sectionId: e.target.value, groupId: ''})}><option value="">{t("Hitamo")}</option>{sections.map(section => <option key={section.id} value={section.id}>{section.name}</option>)}</select></label>}
+        {user.role !== 'GROUP' && <label>{t("Itsinda")}<select value={form.groupId || ''} onChange={e => setForm({...form, groupId: e.target.value})}><option value="">{t("Hitamo")}</option>{groups.map((g: {id: number; label: string}) => <option key={g.id} value={g.id}>{g.label}</option>)}</select></label>}
+        {user.role === 'GROUP' && <p className="muted">{t("Uyu mwizera agera mu itsinda ryawe: {name}.", {name: ownGroupName || t("Itsinda")})}</p>}
         <Btn icon="save" disabled={!online} onClick={() => {
           if (!String(form.fullName || '').trim()) return setMessage('Amazina arakenewe.');
+          if (user.role === 'CHURCH' && !form.sectionId) return setMessage('Hitamo igihande.');
+          if (user.role !== 'GROUP' && !form.groupId) return setMessage('Hitamo itsinda umwizera agomba kuba arimo.');
           const body = {fullName: String(form.fullName).trim(), phoneNumber: String(form.phoneNumber || '').trim(), groupId: form.groupId, isActive: true};
           if (form.id) save(`/members/${form.id}`, body, 'PATCH');
           else save('/members', {...body, submissionId: sid()});
@@ -225,7 +357,9 @@ function App() {
         }}>{form.id ? t("Bika impinduka") : t("Bika igikoresho")}</Btn>
       </Modal>
 
-      {page === 'Ishuri' && can.sabbathSchoolCreate(user.role) && <Btn icon="plus" onClick={() => { setForm({}); setOpen(true); }}>{t("Imibare")}</Btn>}
+      {page === 'Ishuri' && <div className="lang" role="tablist"><button type="button" className={schoolTab === 'stats' ? 'on' : ''} onClick={() => setSchoolTab('stats')}>{t("Imibare")}</button><button type="button" className={schoolTab === 'attendance' ? 'on' : ''} onClick={() => setSchoolTab('attendance')}>{t("Kwitabira")}</button></div>}
+      {page === 'Ishuri' && schoolTab === 'attendance' && <MobileAttendance role={user.role} online={online} />}
+      {page === 'Ishuri' && schoolTab === 'stats' && can.sabbathSchoolCreate(user.role) && <Btn icon="plus" onClick={() => { setForm({}); setOpen(true); }}>{t("Imibare")}</Btn>}
       <Modal open={open && page === 'Ishuri'} title={form.id ? t("Hindura imibare") : t("Andika imibare")} onClose={() => setOpen(false)}>
         <p className="muted">{form.id ? t("Umurongo umwe ni izina: umubare.") : t("Urugero: Abari 40.")}</p>
         {!form.id && <label>{t("Igipimo")}<input value={form.statName || ''} onChange={e => setForm({...form, statName: e.target.value})} /></label>}
@@ -239,24 +373,24 @@ function App() {
           else save('/sabbath-school', {payload, submissionId: sid()});
         }}>{form.id ? t("Bika impinduka") : t("Bika imibare")}</Btn>
       </Modal>
-      {page === 'Ishuri' && !can.sabbathSchoolCreate(user.role) && <p className="muted">{t("Urebere imibare. Kwiyandika bikorwa n’Itsinda gusa.")}</p>}
+      {page === 'Ishuri' && schoolTab === 'stats' && !can.sabbathSchoolCreate(user.role) && <p className="muted">{t("Urebere imibare. Kwiyandika bikorwa n’Itsinda gusa.")}</p>}
 
       {page === 'Raporo' && <p className="muted">{t("Abizera bari mu rwego rwawe, n’uko batanze. Igihande n’Itsinda ntibibona amafaranga y’umuntu umwe.")}</p>}
       {page === 'Konti' && <Konti online={online} regional={user.role === 'REGIONAL_LEADER'} selfId={user.id} homeChurchId={user.churchId} />}
 
-      {page !== 'Ahabanza' && page !== 'Konti' && !listReady && <Bones count={6} />}
-      {page !== 'Ahabanza' && page !== 'Konti' && listReady && rows.slice(0, 30).map((row, index) => (
+      {page !== 'Ahabanza' && page !== 'Konti' && !(page === 'Ishuri' && schoolTab === 'attendance') && !listReady && <Bones count={6} />}
+      {page !== 'Ahabanza' && page !== 'Konti' && !(page === 'Ishuri' && schoolTab === 'attendance') && listReady && rows.slice(0, 30).map((row, index) => (
         <div className="row" key={row.id || row.memberId || index}>
           <span>{row.fullName || row.name || row.description || row.member?.fullName || (row.payloadJson ? Object.entries(row.payloadJson).map(([k, v]) => `${k}: ${v}`).join(' · ') : t("Inyandiko"))}</span>
           <span className="muted">{row.amountRwf != null ? `${Number(row.amountRwf).toLocaleString(locale())} RWF` : row.phoneNumber || row.group?.name || row.status || row.quantity || ''}</span>
-          {page === 'Abizera' && can.memberCreate(user.role) && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, fullName: row.fullName, phoneNumber: row.phoneNumber || '', groupId: row.groupId || row.group?.id || ''}); setOpen(true); }} /><Act icon={row.isActive === false ? 'undo' : 'ban'} label={row.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => save(`/members/${row.id}/active`, {isActive: row.isActive === false}, 'POST')} /></span>}
+          {page === 'Abizera' && can.memberCreate(user.role) && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, fullName: row.fullName, phoneNumber: row.phoneNumber || '', sectionId: row.group?.section?.id || row.group?.sectionId || '', groupId: row.groupId || row.group?.id || ''}); setOpen(true); }} /><Act icon={row.isActive === false ? 'undo' : 'ban'} label={row.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => save(`/members/${row.id}/active`, {isActive: row.isActive === false}, 'POST')} /></span>}
           {page === 'Imisanzu' && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, memberId: row.memberId || '', contributionTypeId: row.contributionTypeId, amountRwf: row.amountRwf}); setOpen(true); }} /><Act icon="ban" label={t("Hagarika")} onClick={() => setReasonFor(`/contributions/${row.id}/cancel`)} /></span>}
           {page === 'Amafaranga' && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, expenseTypeId: row.expenseTypeId, amountRwf: row.amountRwf, description: row.description, payee: row.payee || ''}); setOpen(true); }} /><Act icon="ban" label={t("Hagarika")} onClick={() => setReasonFor(`/expenses/${row.id}/cancel`)} /></span>}
           {page === 'Ibikoresho' && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, assetCategoryId: row.assetCategoryId, name: row.name, quantity: row.quantity, location: row.location || '', custodian: row.custodian || ''}); setOpen(true); }} /><Act icon="archive" label={t("Bika")} onClick={() => { if (window.confirm(t("Gushyira iki gikoresho mu bubiko?"))) save(`/assets/${row.id}/archive`, {}, 'POST'); }} /></span>}
           {page === 'Ishuri' && can.sabbathSchoolCreate(user.role) && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, payloadText: Object.entries(row.payloadJson || {}).map(([k, v]) => `${k}: ${v}`).join('\n')}); setOpen(true); }} /><Act icon="trash" label={t("Siba")} onClick={() => { if (window.confirm(t("Siba iyi mibare?"))) save(`/sabbath-school/${row.id}`, undefined, 'DELETE'); }} /></span>}
         </div>
       ))}
-      {page !== 'Ahabanza' && page !== 'Konti' && listReady && !rows.length && <p className="muted">{t("Nta makuru araboneka muri iki gice.")}</p>}
+      {page !== 'Ahabanza' && page !== 'Konti' && !(page === 'Ishuri' && schoolTab === 'attendance') && listReady && !rows.length && <p className="muted">{t("Nta makuru araboneka muri iki gice.")}</p>}
 
       <nav>{pages.map(item => <button key={item} className={page === item ? 'active' : ''} onClick={() => { setPage(item); setMessage(''); setOpen(false); setForm({}); }}>{t(pageLabel[item] || item)}</button>)}</nav>
       <ReasonModal open={!!reasonFor} title={t("Hagarika inyandiko")} onClose={() => setReasonFor(null)} onConfirm={reason => { if (reasonFor) save(reasonFor, {reason}, 'POST'); }} />

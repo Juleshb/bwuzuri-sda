@@ -101,6 +101,21 @@ aside nav button.active small { color: #d5e3f2; }
 .pills { display: flex; gap: 8px; flex-wrap: wrap; }
 .pill { border: 1px solid var(--line); background: white; border-radius: 999px; padding: 6px 10px; font-size: 12px; }
 .lang { display: flex; gap: 4px; width: max-content; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: white; }
+.lang.tabs { margin: 0 0 14px; }
+.attend-sheet { background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); padding: 16px 18px 18px; display: grid; gap: 4px; }
+.attend-head { display: flex; justify-content: space-between; gap: 16px; align-items: end; flex-wrap: wrap; margin-bottom: 8px; }
+.attend-head h3, .attend-head p { margin: 0; }
+.attend-head p { margin-top: 6px; }
+.attend-head label { min-width: 180px; }
+.attend-row { display: grid; grid-template-columns: minmax(160px, 1.4fr) minmax(220px, 280px) minmax(180px, 1fr); gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.attend-extra { display: grid; gap: 8px; }
+.attend-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.attend-sheet .attend-choice button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-weight: 600; }
+.attend-sheet .attend-choice button[aria-pressed="true"].here { background: var(--denim); color: #fff; border-color: var(--denim); }
+.attend-sheet .attend-choice button[aria-pressed="true"].away { background: var(--danger); color: #fff; border-color: var(--danger); }
+@media (max-width: 760px) { .attend-row { grid-template-columns: 1fr; } }
+.attend { display: flex; flex-direction: row; align-items: center; gap: 10px; color: var(--ink); }
+.attend input { width: 18px; height: 18px; margin: 0; }
 .lang button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 10px; font-size: 12px; }
 .lang button.on { background: var(--denim); color: white; }
 .gate-card > .lang { margin: 0 0 14px; }

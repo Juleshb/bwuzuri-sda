@@ -27,6 +27,15 @@ button.eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50
 @media (prefers-reduced-motion: reduce) { .bone { animation: none; } }
 input, select, textarea, button { padding: 12px; border-radius: 10px; border: 1px solid #d9d1c3; background: white; }
 .lang { display: flex; gap: 4px; width: max-content; margin: 0 0 12px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: white; }
+.attend-sheet { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px; margin: 0 0 12px; display: grid; gap: 8px; }
+.attend-row { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.attend-extra { display: grid; gap: 8px; }
+.attend-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.attend-sheet .attend-choice button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-weight: 600; }
+.attend-sheet .attend-choice button[aria-pressed="true"].here { background: var(--denim); color: #fff; border-color: var(--denim); }
+.attend-sheet .attend-choice button[aria-pressed="true"].away { background: var(--danger); color: #fff; border-color: var(--danger); }
+.attend { display: flex; flex-direction: row; align-items: center; gap: 10px; color: var(--ink); }
+.attend input { width: 18px; height: 18px; margin: 0; padding: 0; }
 .lang button { border: 0; background: transparent; color: var(--muted); border-radius: 999px; padding: 6px 10px; font-size: 12px; }
 .lang button.on { background: var(--denim); color: white; }
 button.primary, nav button.active { background: var(--forest); color: white; border: 0; }

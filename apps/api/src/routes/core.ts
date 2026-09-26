@@ -57,9 +57,13 @@ coreRouter.post('/churches/:id/active',requireRole('REGIONAL_LEADER'),async(req,
   const id=Number(req.params.id);
   res.json(await db.church.update({where:{id},data:{isActive:req.body.isActive!==false}}));
 });
-coreRouter.post('/sections',requireRole('REGIONAL_LEADER'),async(req,res)=>{
-  const churchId=Number(req.body.churchId); const name=String(req.body.name||'').trim();
+coreRouter.post('/sections',requireRole('REGIONAL_LEADER','CHURCH'),async(req:AuthedRequest,res)=>{
+  const u=req.user!;
+  const churchId=u.role==='CHURCH'?Number(u.churchId):Number(req.body.churchId);
+  const name=String(req.body.name||'').trim();
   if(!churchId||!name)return res.status(400).json({message:'Church and section name are required'});
+  const church=await db.church.findFirst({where:{id:churchId,isActive:true}});
+  if(!church)return res.status(400).json({message:'Church and section name are required'});
   try{res.status(201).json(await db.section.create({data:{churchId,name}}))}catch{res.status(409).json({message:'That section already exists in this church'})}
 });
 coreRouter.patch('/sections/:id',requireRole('REGIONAL_LEADER'),async(req,res)=>{
@@ -70,9 +74,13 @@ coreRouter.patch('/sections/:id',requireRole('REGIONAL_LEADER'),async(req,res)=>
 coreRouter.post('/sections/:id/active',requireRole('REGIONAL_LEADER'),async(req,res)=>{
   res.json(await db.section.update({where:{id:Number(req.params.id)},data:{isActive:req.body.isActive!==false}}));
 });
-coreRouter.post('/groups',requireRole('REGIONAL_LEADER'),async(req,res)=>{
-  const sectionId=Number(req.body.sectionId); const name=String(req.body.name||'').trim();
+coreRouter.post('/groups',requireRole('REGIONAL_LEADER','SECTION'),async(req:AuthedRequest,res)=>{
+  const u=req.user!;
+  const sectionId=u.role==='SECTION'?Number(u.sectionId):Number(req.body.sectionId);
+  const name=String(req.body.name||'').trim();
   if(!sectionId||!name)return res.status(400).json({message:'Section and group name are required'});
+  const section=await db.section.findFirst({where:{id:sectionId,isActive:true}});
+  if(!section)return res.status(400).json({message:'Section and group name are required'});
   try{res.status(201).json(await db.group.create({data:{sectionId,name}}))}catch{res.status(409).json({message:'That group already exists in this section'})}
 });
 coreRouter.patch('/groups/:id',requireRole('REGIONAL_LEADER'),async(req,res)=>{
