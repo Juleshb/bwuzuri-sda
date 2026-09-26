@@ -11,7 +11,7 @@ if [ ! -f .env ]; then
 fi
 
 echo "Updating $ROOT"
-git pull --ff-only
+git -c safe.directory="$ROOT" pull --ff-only
 npm install
 npx prisma generate
 npx prisma migrate deploy
