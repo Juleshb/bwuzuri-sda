@@ -1,7 +1,19 @@
+import {readFileSync} from 'node:fs';
+import {dirname, join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {loadEnv} from './env.js';
 import express from 'express'; import cors from 'cors'; import {PrismaClient} from '@prisma/client';
 import {validateProductionConfig,allowedOrigins} from './config.js';
 import {syncRouter} from './routes/sync.js'; import {devicesRouter} from './routes/devices.js'; import {reportsRouter} from './routes/reports.js'; import {authRouter} from './routes/auth.js'; import {expensesRouter} from './routes/expenses.js'; import {assetsRouter} from './routes/assets.js'; import {membersRouter} from './routes/members.js'; import {contributionsRouter} from './routes/contributions.js'; import {coreRouter} from './routes/core.js'; import {budgetsRouter} from './routes/budgets.js'; import {sabbathSchoolRouter} from './routes/sabbathSchool.js'; import {usersRouter} from './routes/users.js';
+function apiRevision() {
+  try {
+    const file = join(dirname(fileURLToPath(import.meta.url)), 'build-info.json');
+    const parsed = JSON.parse(readFileSync(file, 'utf8'));
+    return String(parsed.revision || 'unmarked');
+  } catch {
+    return 'unmarked';
+  }
+}
 loadEnv();
 validateProductionConfig(); export const db=new PrismaClient(); const app=express(); app.disable('x-powered-by'); app.set('trust proxy',1);
 const origins=allowedOrigins();
@@ -21,7 +33,7 @@ app.use((req,res,next)=>{
   }
   next();
 });
-app.get('/health/live',(_q,r)=>r.json({status:'ok',build:'0.17-ts.1'})); app.get('/health/ready',async(_q,r)=>{try{await db.$queryRaw`SELECT 1`;r.json({status:'ready'})}catch{r.status(503).json({status:'not-ready'})}});
+app.get('/health/live',(_q,r)=>r.json({status:'ok',build:'0.17-ts.1',revision:apiRevision()})); app.get('/health/ready',async(_q,r)=>{try{await db.$queryRaw`SELECT 1`;r.json({status:'ready'})}catch{r.status(503).json({status:'not-ready'})}});
 app.use('/api/sync',syncRouter); app.use('/api/devices',devicesRouter); app.use('/api/reports',reportsRouter); app.use('/api/auth',authRouter); app.use('/api/users',usersRouter); app.use('/api/expenses',expensesRouter); app.use('/api/assets',assetsRouter); app.use('/api/sabbath-school',sabbathSchoolRouter); app.use('/api/members',membersRouter); app.use('/api/contributions',contributionsRouter); app.use('/api/budgets',budgetsRouter); app.use('/api',coreRouter);
 app.use((_q,r)=>r.status(404).json({message:'Not found'}));
 const port=Number(process.env.PORT||8080); app.listen(port,()=>console.log(`Bwuzuri API listening on ${port}`));

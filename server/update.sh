@@ -16,17 +16,34 @@ npm install
 npx prisma generate
 npx prisma migrate deploy
 npm -w @bwuzuri/api run build
+REV="$(git rev-parse --short HEAD)"
+printf '{"revision":"%s"}\n' "$REV" > apps/api/dist/build-info.json
 
-if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files bwuzuri-api.service --no-legend >/dev/null 2>&1 && systemctl is-enabled bwuzuri-api >/dev/null 2>&1; then
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+PORT="${PORT:-8080}"
+
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet bwuzuri-api; then
   systemctl restart bwuzuri-api
-  systemctl --no-pager --full status bwuzuri-api
 else
-  echo
-  echo "The new API is built in apps/api/dist."
-  echo "Restart the Node project in the panel so it loads that build."
-  echo "Working directory must stay: $ROOT"
+  echo "Stopping the API process so it loads the new build"
+  for pid in $(pgrep -f "/apps/api/dist/index.js" || true); do
+    if [ "$pid" != "$$" ] && [ "$pid" != "$PPID" ]; then
+      kill "$pid" || true
+    fi
+  done
+  sleep 2
+  if ! pgrep -f "/apps/api/dist/index.js" >/dev/null 2>&1; then
+    echo "Starting the API"
+    nohup npm -w @bwuzuri/api start >> "$ROOT/server/api.log" 2>&1 &
+    sleep 2
+  fi
 fi
 
 echo
-echo "Now running $(git rev-parse --short HEAD)"
-echo "Check: curl -s http://127.0.0.1:\${PORT:-8080}/health/live"
+echo "Git revision $REV"
+curl -fsS "http://127.0.0.1:${PORT}/health/live" || true
+echo
+echo "The live line must include \"revision\":\"$REV\". If it does not, restart the Node project in the panel."
