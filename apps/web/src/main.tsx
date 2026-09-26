@@ -351,6 +351,7 @@ function Churches({user, rows, refresh, loading}: {user: User; rows: any[]; refr
   const [pickedId, setPickedId] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [treeReady, setTreeReady] = useState(false);
+  const [removeMember, setRemoveMember] = useState<any>(null);
   const regional = user.role === 'REGIONAL_LEADER';
   useEffect(() => {
     let live = true;
@@ -421,6 +422,15 @@ function Churches({user, rows, refresh, loading}: {user: User; rows: any[]; refr
       setMsg(row.isActive === false ? t("Umwizera yasubijwe neza.") : t("Umwizera yahagaritswe neza."));
       refresh();
     } catch (e: any) { setMsg(e.message); }
+  }
+  async function deleteMember() {
+    if (!removeMember) return;
+    try {
+      await api(`/members/${removeMember.id}`, {method: 'DELETE'});
+      setMsg('Umwizera yasibwe neza.');
+      setRemoveMember(null);
+      refresh();
+    } catch (e: any) { setMsg(e.message); setRemoveMember(null); }
   }
   async function saveOrg() {
     const name = String(form.orgName || '').trim();
@@ -551,7 +561,7 @@ function Churches({user, rows, refresh, loading}: {user: User; rows: any[]; refr
                   )) : <p className="muted">{t("Nta tsinda.")}</p>}
                 </article>
               )) : <p className="muted">{t("Iri torero nta gihande rigifite.")}</p>}
-              {!canAdd && <p className="muted">{t("Intara ireba abizera. Kwiyandikisha no guhindura bikorwa n’Itorero, Igihande, cyangwa Itsinda.")}</p>}
+              {!canAdd && <p className="muted">{t("Intara ireba abizera kandi ishobora kubasiba. Kwiyandikisha no guhindura bikorwa n’Itorero, Igihande, cyangwa Itsinda.")}</p>}
               <Note text={sheet ? '' : msg} />
               {loading || !treeReady ? <Bones count={4} /> : <Table empty={t("Nta mwizera wanditswe muri iri torero.")} rows={people} columns={[
           {key: 'fullName', label: t("Amazina")},
@@ -559,7 +569,7 @@ function Churches({user, rows, refresh, loading}: {user: User; rows: any[]; refr
           {key: 'section', label: t("Igihande"), render: r => r.group?.section?.name || '—'},
           {key: 'group', label: t("Itsinda"), render: r => r.group?.name || '—'},
           {key: 'isActive', label: t("Akora"), render: r => r.isActive === false ? t("Oya") : t("Yego")},
-          {key: 'action', label: '', render: r => canAdd ? <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm((f: any) => ({...f, memberId: r.id, fullName: r.fullName, phoneNumber: r.phoneNumber || '', sectionId: r.group?.section?.id || r.group?.sectionId || '', groupId: r.groupId || r.group?.id || ''})); setSheet('member'); }} /><Act icon={r.isActive === false ? 'undo' : 'ban'} tone={r.isActive === false ? 'edit' : 'danger'} label={r.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggleMember(r)} /></span> : null}
+          {key: 'action', label: '', render: r => (canAdd || regional) ? <span className="row-actions">{canAdd && <Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm((f: any) => ({...f, memberId: r.id, fullName: r.fullName, phoneNumber: r.phoneNumber || '', sectionId: r.group?.section?.id || r.group?.sectionId || '', groupId: r.groupId || r.group?.id || ''})); setSheet('member'); }} />}{canAdd && <Act icon={r.isActive === false ? 'undo' : 'ban'} tone={r.isActive === false ? 'edit' : 'danger'} label={r.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggleMember(r)} />}{regional && <Act icon="trash" tone="danger" label={t("Siba")} onClick={() => { setMsg(''); setRemoveMember(r); }} />}</span> : null}
         ]} />}
             </>
           )}
@@ -603,6 +613,7 @@ function Churches({user, rows, refresh, loading}: {user: User; rows: any[]; refr
           </div>
         </form>
       </Modal>
+      <ConfirmModal open={removeMember != null} title={t("Siba umwizera")} hint={t("Uyu mwizera azasibwa burundu. Imisanzu ye igumaho.")} confirm={t("Siba")} danger onClose={() => setRemoveMember(null)} onConfirm={deleteMember} />
     </div>
   );
 }
@@ -1270,6 +1281,7 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
   const [query, setQuery] = useState('');
   const [msg, setMsg] = useState('');
   const [ready, setReady] = useState(false);
+  const [removeUser, setRemoveUser] = useState<any>(null);
   const load = () => {
     setReady(false);
     return Promise.all([api('/users'), api('/churches?all=1')]).then(([users, tree]) => { setRows(users); setChurches(tree); }).catch((e: any) => setMsg(e.message)).finally(() => setReady(true));
@@ -1299,13 +1311,22 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
       load();
     } catch (e: any) { setMsg(e.message); }
   }
+  async function removeAccount() {
+    if (!removeUser) return;
+    try {
+      await api(`/users/${removeUser.id}`, {method: 'DELETE'});
+      setMsg('Ukoresha yasibwe neza.');
+      setRemoveUser(null);
+      load();
+    } catch (e: any) { setMsg(e.message); setRemoveUser(null); }
+  }
   return (
     <section>
       <div className="page-tools">
         <label className="search"><Icon name="search" /><input value={query} onChange={e => setQuery(e.target.value)} placeholder="Shakisha ukoresha" /></label>
         <Btn icon="plus" onClick={() => { setMsg(''); setForm({role: 'CHURCH', churchId: homeChurchId || ''}); setOpen(true); }}>{t("Ukoresha")}</Btn>
       </div>
-      <Note text={open ? '' : msg} />
+      <Note text={open || removeUser ? '' : msg} />
       <Table loading={!ready} empty={t("Nta mukoresha abonetse.")} rows={shown} columns={[
         {key: 'fullName', label: t("Amazina")},
         {key: 'username', label: 'Username'},
@@ -1315,6 +1336,7 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
         {key: 'action', label: '', render: row => <span className="row-actions">
           <Act icon="pencil" label={t("Hindura")} onClick={() => { setMsg(''); setForm({id: row.id, fullName: row.fullName, username: row.username, role: row.role, churchId: row.churchId || '', sectionId: row.sectionId || '', groupId: row.groupId || '', password: ''}); setOpen(true); }} />
           {row.id !== selfId && <Act icon={row.isActive === false ? 'undo' : 'ban'} tone={row.isActive === false ? 'edit' : 'danger'} label={row.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => toggle(row)} />}
+          {regional && row.id !== selfId && <Act icon="trash" tone="danger" label={t("Siba")} onClick={() => { setMsg(''); setRemoveUser(row); }} />}
         </span>}
       ]} />
       <Modal open={open} title={form.id ? t("Hindura ukoresha") : t("Ongeramo ukoresha")} hint={regional ? t("Itorero, igihande, n’itsinda bigomba kuba bifite ukoresha uyobora ayo makuru.") : t("Ushobora guha konti abayobora itorero ryawe, igihande, n’itsinda.")} onClose={() => setOpen(false)}>
@@ -1341,6 +1363,7 @@ function Accounts({selfId, regional, homeChurchId}: {selfId?: number; regional: 
           </div>
         </form>
       </Modal>
+      <ConfirmModal open={removeUser != null} title={t("Siba ukoresha")} hint={t("Iyi konti izasibwa burundu. Inyandiko yanditse igumaho.")} confirm={t("Siba")} danger onClose={() => setRemoveUser(null)} onConfirm={removeAccount} />
     </section>
   );
 }

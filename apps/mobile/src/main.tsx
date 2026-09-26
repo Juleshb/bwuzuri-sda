@@ -384,6 +384,7 @@ function App() {
           <span>{row.fullName || row.name || row.description || row.member?.fullName || (row.payloadJson ? Object.entries(row.payloadJson).map(([k, v]) => `${k}: ${v}`).join(' · ') : t("Inyandiko"))}</span>
           <span className="muted">{row.amountRwf != null ? `${Number(row.amountRwf).toLocaleString(locale())} RWF` : row.phoneNumber || row.group?.name || row.status || row.quantity || ''}</span>
           {page === 'Abizera' && can.memberCreate(user.role) && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, fullName: row.fullName, phoneNumber: row.phoneNumber || '', sectionId: row.group?.section?.id || row.group?.sectionId || '', groupId: row.groupId || row.group?.id || ''}); setOpen(true); }} /><Act icon={row.isActive === false ? 'undo' : 'ban'} label={row.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => save(`/members/${row.id}/active`, {isActive: row.isActive === false}, 'POST')} /></span>}
+          {page === 'Abizera' && user.role === 'REGIONAL_LEADER' && <span className="row-actions"><Act icon="trash" label={t("Siba")} onClick={() => { if (window.confirm(t("Uyu mwizera azasibwa burundu. Imisanzu ye igumaho."))) save(`/members/${row.id}`, undefined, 'DELETE'); }} /></span>}
           {page === 'Imisanzu' && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, memberId: row.memberId || '', contributionTypeId: row.contributionTypeId, amountRwf: row.amountRwf}); setOpen(true); }} /><Act icon="ban" label={t("Hagarika")} onClick={() => setReasonFor(`/contributions/${row.id}/cancel`)} /></span>}
           {page === 'Amafaranga' && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, expenseTypeId: row.expenseTypeId, amountRwf: row.amountRwf, description: row.description, payee: row.payee || ''}); setOpen(true); }} /><Act icon="ban" label={t("Hagarika")} onClick={() => setReasonFor(`/expenses/${row.id}/cancel`)} /></span>}
           {page === 'Ibikoresho' && <span className="row-actions"><Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, assetCategoryId: row.assetCategoryId, name: row.name, quantity: row.quantity, location: row.location || '', custodian: row.custodian || ''}); setOpen(true); }} /><Act icon="archive" label={t("Bika")} onClick={() => { if (window.confirm(t("Gushyira iki gikoresho mu bubiko?"))) save(`/assets/${row.id}/archive`, {}, 'POST'); }} /></span>}
@@ -430,13 +431,14 @@ function Konti({online, regional, selfId, homeChurchId}: {online: boolean; regio
   return (
     <section>
       <Btn icon="plus" disabled={!online} onClick={() => { setForm({role: 'CHURCH', churchId: homeChurchId || ''}); setOpen(true); }}>{t("Ukoresha")}</Btn>
-      {msg && <p className={msg.includes('Byabitswe') ? 'ok' : 'bad'}>{msg}</p>}
+      {msg && <p className={msg.includes('Byabitswe') || msg.includes('neza') ? 'ok' : 'bad'}>{t(msg)}</p>}
       {!ready ? <Bones count={5} /> : rows.map(row => (
         <div className="row" key={row.id}>
           <span>{row.fullName} · {row.username}<br /><span className="muted">{t(roleLabel[row.role as Role])}{row.isActive === false ? t(" · yahagaritswe") : ''}</span></span>
           <span className="row-actions">
             <Act icon="pencil" label={t("Hindura")} onClick={() => { setForm({id: row.id, fullName: row.fullName, username: row.username, role: row.role, churchId: row.churchId || '', sectionId: row.sectionId || '', groupId: row.groupId || ''}); setOpen(true); }} />
             {row.id !== selfId && <Act icon={row.isActive === false ? 'undo' : 'ban'} label={row.isActive === false ? t("Subiza") : t("Hagarika")} onClick={() => api(`/users/${row.id}`, {method: 'PATCH', body: JSON.stringify({isActive: row.isActive === false})}).then(() => load()).catch((e: any) => setMsg(e.message))} />}
+            {regional && row.id !== selfId && <Act icon="trash" label={t("Siba")} onClick={() => { if (window.confirm(t("Iyi konti izasibwa burundu. Inyandiko yanditse igumaho."))) api(`/users/${row.id}`, {method: 'DELETE'}).then(() => { setMsg('Ukoresha yasibwe neza.'); load(); }).catch((e: any) => setMsg(e.message)); }} />}
           </span>
         </div>
       ))}

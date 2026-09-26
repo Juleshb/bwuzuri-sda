@@ -127,3 +127,30 @@ usersRouter.patch('/:id', async (req: AuthedRequest, res) => {
   });
   res.json(updated);
 });
+
+usersRouter.delete('/:id', async (req: AuthedRequest, res) => {
+  if (req.user!.role !== 'REGIONAL_LEADER') return res.status(403).json({message: 'Intara ni yo isiba abakoresha.'});
+  const id = Number(req.params.id);
+  if (req.user!.id === id) return res.status(400).json({message: 'Ntushobora kwisiba.'});
+  const existing = Number.isInteger(id) ? await db.user.findUnique({where: {id}}) : null;
+  if (!existing) return res.status(404).json({message: 'Ukoresha ntabonetse.'});
+  const guard = await lastLeaderGuard(id, '', false);
+  if (guard) return res.status(400).json({message: guard});
+  const churchGuard = await lastChurchGuard(id, '', false, null);
+  if (churchGuard) return res.status(400).json({message: churchGuard});
+  const keeper = req.user!.id;
+  try {
+    await db.$transaction([
+      db.contribution.updateMany({where: {createdByUserId: id}, data: {createdByUserId: keeper}}),
+      db.expense.updateMany({where: {createdByUserId: id}, data: {createdByUserId: keeper}}),
+      db.expense.updateMany({where: {cancelledByUserId: id}, data: {cancelledByUserId: keeper}}),
+      db.sabbathSchoolEntry.updateMany({where: {createdByUserId: id}, data: {createdByUserId: keeper}}),
+      db.sabbathAttendance.updateMany({where: {createdByUserId: id}, data: {createdByUserId: keeper}}),
+      db.budgetAchievement.updateMany({where: {createdByUserId: id}, data: {createdByUserId: keeper}}),
+      db.user.delete({where: {id}})
+    ]);
+    res.json({ok: true});
+  } catch {
+    res.status(409).json({message: 'Ntibyashobotse gusiba uyu mukoresha.'});
+  }
+});

@@ -15,3 +15,18 @@ membersRouter.post('/:id/active',requireRole('CHURCH','SECTION','GROUP'),async(r
  const current=await editableMember(req.user,Number(req.params.id)); if(!current)return res.status(404).json({message:'Member not found in your scope'});
  res.json(await db.member.update({where:{id:current.id},data:{isActive:req.body.isActive!==false}}));
 });
+membersRouter.delete('/:id',requireRole('REGIONAL_LEADER'),async(req:AuthedRequest,res)=>{
+ const id=Number(req.params.id);
+ const current=Number.isInteger(id)?await db.member.findUnique({where:{id}}):null;
+ if(!current)return res.status(404).json({message:'Umwizera ntabonetse.'});
+ try{
+  await db.$transaction([
+   db.sabbathAttendance.deleteMany({where:{memberId:id}}),
+   db.contribution.updateMany({where:{memberId:id},data:{memberId:null}}),
+   db.budgetMemberAllocation.deleteMany({where:{memberId:id}}),
+   db.budgetAchievement.updateMany({where:{memberId:id},data:{memberId:null}}),
+   db.member.delete({where:{id}})
+  ]);
+  res.json({ok:true});
+ }catch{res.status(409).json({message:'Ntibyashobotse gusiba uyu mwizera.'})}
+});
